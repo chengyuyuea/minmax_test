@@ -1,0 +1,20 @@
+# ── 大模型权重 / 检查点（~196G，保留在 HF 缓存与 OSS，不入库）──
+/MiniMax-H3/
+
+# ── 第三方克隆：SageAttention（自带 .git + build 产物，~187M）──
+/explore/
+
+# ── 编辑器 / code-server 扩展 / 缓存 ──
+/.local/
+/.cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ── 生成的大体积视频（已备份到 OSS /mnt/data，不入库）──
+*.mp4
+
+# ── 系统噪声 ──
+.DS_Store
+*.swp

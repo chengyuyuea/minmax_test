@@ -1,0 +1,14 @@
+Looking in indexes: https://mirrors.aliyun.com/pypi/simple
+Processing ./.
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: sageattention
+  Building wheel for sageattention (pyproject.toml): started
+  Building wheel for sageattention (pyproject.toml): still running...
+  Building wheel for sageattention (pyproject.toml): finished with status 'done'
+  Created wheel for sageattention: filename=sageattention-2.2.0-cp312-cp312-linux_x86_64.whl size=8950397 sha256=6c3de0d59c26b699e9425b69890f6f7fac801faf9d8ac6611ca7694f3e7e9878
+  Stored in directory: /tmp/pip-ephem-wheel-cache-yruq5ht9/wheels/06/fa/ba/95016089c56bdf126cbfeef4320bf2b77d05018132ab1270fb
+Successfully built sageattention
+Installing collected packages: sageattention
+Successfully installed sageattention-2.2.0
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.

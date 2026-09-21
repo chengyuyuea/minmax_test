@@ -1,0 +1,32 @@
+/mnt/workspace/scripts/run_h3.py --prompt 'A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field' --height 768 --width 1344 --num-frames 124 --steps 50 --seed 0 --tag raw-noaccel --run-id raw-231616
+
+{
+  "prompt": "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+  "image": null,
+  "last_image": null,
+  "height": 768,
+  "width": 1344,
+  "num_frames": 124,
+  "steps": 50,
+  "seed": 0,
+  "out": "/mnt/workspace/outputs/raw-231616/video.mp4",
+  "outputs_dir": "/mnt/workspace/outputs",
+  "model_dir": "/mnt/workspace/MiniMax-H3",
+  "lora": null,
+  "lora_scale": 1.0,
+  "run_id": "raw-231616",
+  "runs_dir": "/mnt/workspace/runs",
+  "monitor_hz": 2.0,
+  "tag": "raw-noaccel",
+  "no_load_opt": false,
+  "parallel_load": false,
+  "profile": false,
+  "cache_dit": false,
+  "cache_dit_threshold": 0.15,
+  "repeat": 1,
+  "reuse_text_embeds": false,
+  "compile": false,
+  "compile_fullgraph": false,
+  "prompt_file": null,
+  "tf32": false
+}

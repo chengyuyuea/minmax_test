@@ -1,0 +1,120 @@
+# MiniMax-H3 推理加速 — Agent 增量探索交接（精简版）
+
+日期：2026-09-10
+> 本文档仅记录 AI agent 在 2026-09-02 ~ 2026-09-10 期间产出的独有信息。
+> 效果数据、待探索项、交付状态等请阅读主文档 `2026-09-02-handoff.md`。
+
+---
+
+## 1. 实验总表
+
+### 1.1 正式 runs（13 个）
+
+| # | Run ID | 日期 | Tag | Steps | 优化配置 | load(s) | denoise(s) | decode(s) | wall(s) | vs baseline | PSNR/SSIM | 备注 |
+|---|--------|------|-----|-------|---------|---------|------------|-----------|---------|-------------|-----------|------|
+| 1 | `20260902-115310` | 09-02 | `baseline` | 50 | 无 | 353.2 | 832.5 | 19.7 | **1212.5** | **1.00×** | ref | 原始基线 |
+| 2 | `20260902-122314` | 09-02 | `profile` | 2 | --profile | 347.1 | 17.4 | 20.1 | 391.4 | probe | — | kernel 归因 |
+| 3 | `20260903-001102` | 09-03 | `turbo-lora-4step` | 5 | Turbo LoRA (4 次前向) | 302.8 | 68.0 | 19.7 | **397.6** | **3.05×** | 12.78/0.47 | 蒸馏路线 |
+| 4 | `20260903-001950` | 09-03 | `baseline-2` | 50 | 无 | 311.5 | 832.3 | 19.7 | **1170.5** | **1.04×** | inf/1.0 | 重复验证 |
+| 5 | `20260903-223037` | 09-03 | `probe-load-opt` | 2 | device_map | 292.2 | 17.0 | 19.7 | 337.0 | probe | — | 加载探针 |
+| 6 | `20260903-223811` | 09-03 | `load-opt-devicemap` | 50 | device_map=cuda | 292.3 | 832.2 | 19.6 | **1151.6** | **1.05×** | inf/1.0 | bit-identical |
+| 7 | `20260903-233910` | 09-03 | `cache-dit-t015` | 50 | FBCache t=0.15 | 290.9 | 217.0 | 19.8 | **534.7** | **2.27×** | 16.67/0.66 | 12 次完整前向 |
+| 8 | `20260903-234840` | 09-03 | `cache-dit-t025` | 50 | FBCache t=0.25 | 280.5 | 150.4 | 19.7 | **457.7** | **2.65×** | 14.49/0.54 | 8 次完整前向 |
+| 9 | `20260903-235706` | 09-03 | `cache-dit-t010` | 50 | FBCache t=0.10 | 271.4 | 300.0 | 19.6 | **598.1** | **2.03×** | 16.12/0.65 | 17 次完整前向 |
+| 10 | `20260904-105029` | 09-04 | `turbo-lora-cachedit015` | 5 | Turbo + FBCache t=0.15 | 294.9 | 68.0 | 19.9 | **390.3** | **3.11×** | — | 证明叠加无效 |
+| 11 | `20260904-105925` | 09-04 | `probe-repeat3-cachedit025` | 50 | FBCache t=0.25, repeat=3 | 见HO§12.1 | 150.7–150.8 | 18–20 | 总1437.1 | probe | — | 无 reuse 时 load 不摊薄 |
+| 12 | `20260908-153146` | 09-08 | `probe-reuse-embeds` | 2 | reuse-text-embeds, repeat=3 | 见HO§12.1 | 17.0 | 17.6–19.9 | — | probe | — | reuse 机制验证 |
+| 13 | `20260908-154356` | 09-08 | `reuse-embeds-cachedit025` | 50 | FBCache t=0.25 + reuse, repeat=3 | 见HO§12.3 | 150.5–150.7 | 17.7–19.8 | 总827.8 | — | 14.49/0.54 | **交付基线** |
+
+### 1.2 bak 目录中的归档 runs（5 个）
+
+| Run ID | 内容 | 状态 |
+|--------|------|------|
+| `20260903-230652` | 无 run.json，仅 cmd.txt/metrics.csv/run.log | 早期崩溃 |
+| `20260903-231413` | 同上 | 早期崩溃 |
+| `20260903-232345` | `probe-cachedit3`, steps=6, FBCache t=0.15 | FBCache 早期调试 |
+| `20260903-233028` | `probe-cachedit4`, steps=6, FBCache t=0.15 | FBCache 早期调试 |
+| `20260904-102410-crashed-video-processor` | 无 run.json | video_processor=None 崩溃（促成 `_STICKY_COMPONENTS` 修复） |
+
+---
+
+## 2. 工程化实现细节
+
+> 效果数据（wall/denoise/PSNR 等）请查 HO §12；此处仅记录代码位置与实现步骤。
+
+### 2.1 device_map 直接落卡
+
+- **原理**：向 `load_components` 传递 `device_map={"transformer":"cuda",...}`，safetensors 直接映射到 GPU，跳过 host RAM 中转。
+- **实现位置**：`run_h3.py:79-98` `load_group()` 函数，默认启用，`--no-load-opt` 关闭。只对 `_MODULE_COMPONENTS`（text_encoder / transformer / transformer_ref / vae / audio_vae）生效，tokenizer / scheduler / processor 不传 device_map。
+
+### 2.2 FBCache 三步工程化
+
+代码位置：`run_h3.py:334-377`。
+
+1. **运行时注册**：`MiniMaxH3TransformerBlock` → `TransformerBlockRegistry`（`return_hidden_states_index=0`）
+2. **手动设置 cache context**：denoise loop 不调用 `cache_context()`，需手动设置 FBC cache context
+3. **hooks 清理**：生成后必须清理 FBCache hooks（`_FBC_LEADER_BLOCK_HOOK` / `_FBC_BLOCK_HOOK`），否则 62 GiB transformer 因循环引用在 decode 阶段仍驻留 → OOM。清理位置：`run_h3.py:421-430`，在 free 前做 `remove_hook(recurse=True)`
+
+### 2.3 Turbo LoRA 集成
+
+- **权重位置**：`/mnt/workspace/explore/turbo-lora-A/minimax_h3_turbo_4step.safetensors`（~744 MiB）
+- **来源**：`larryvrh/MiniMax-H3-Turbo-Lora`（Apache 2.0）
+- **实现**：`run_h3.py:349-354`，通过 `--lora` 参数指定路径。diffusers 0.40.0 内置转换函数 `_convert_non_diffusers_minimax_h3_lora_to_diffusers` 自动处理 qkv 拆分、kohya 命名转换、MLP 半交换、按头交错布局。加载后 `fuse_lora` 融入权重再 `unload`，运行时零额外算子。
+
+---
+
+## 3. 瓶颈转移总结
+
+| 阶段 | baseline (1212.5s) | FBCache t=0.25 (457.7s) | + reuse-text-embeds (188s) |
+|------|-------------------|------------------------|---------------------------|
+| denoise 占比 | 68.6% (832.5s) | 32.9% (150.4s) | **80.1%** (150.6s) |
+| load 占比 | 29.1% (353.2s) | 61.3% (280.5s) | **9.0%** (17.0s) |
+| 其他（decode/encode_mp4） | 2.3% | 5.8% | 10.9% |
+| **主瓶颈** | **denoise** | **load（I/O）** | **denoise（GPU 计算）** |
+
+---
+
+## 4. 陷阱速查清单
+
+| 陷阱 | 详情 | 首次暴露 |
+|------|------|---------|
+| FBCache hooks 循环引用 | 不清理 hooks 则 62 GiB transformer 在 decode 阶段仍驻留 → OOM | bak/20260904-102410 |
+| kwargs_type 必须携带 | 回放 text_embeds 时漏掉 kwargs_type 会静默失去文本条件，输出无报错但画面全错 | Run 12 调试期 |
+| _STICKY_COMPONENTS | image_processor/processor/video_processor/tokenizer 不能 free，否则 repeat 第二轮崩溃 | bak/20260904-102410 |
+| FBCache 阈值非单调 | t=0.10 的 PSNR（16.12）低于 t=0.15（16.67），不是"越小越保真" | Run 7 vs Run 9 |
+| bench_768p.sh tag 是位置参数 | `--tag foo` 会让 TAG 变成字面量 `--tag` | 多次复现 |
+| --steps 重复出现 | bench_768p.sh 固定 `--steps 50` 在前，`"$@"` 在后，靠 argparse 后者胜 | 已知瑕疵 |
+| PSNR 不可做自动门禁 | 14.49 的 E 组被选中，16.67 的 C 组落选。12–17 dB 量级无法与人眼对应 | §13.1 验片 |
+| h3_report.py 对 repeat 的 wall 误导 | 拿 N 视频总 wall 与 baseline 单视频比，需手动拆迭代 | Run 11 |
+| Read 工具返回缓存旧版本 | run_h3.py 需用 sed/awk/grep 读，python 写 | DSW 环境 |
+| page cache 命中率不能用 rchar | safetensors 走 mmap，rchar 恒为 0，需用「组件体积 − read_gib」推算 | Run 11 分析 |
+
+---
+
+## 5. 产物补充
+
+### 5.1 技术文档
+
+| 文件 | 内容 | 行数 |
+|------|------|------|
+| `docs/minimax-h3-inference-guide.md` | 技术指南：Part I 架构原理（§1–6）+ Part II 加速实践（§7–13）+ 附录 | 591 |
+
+已同步到钉钉 AliDocs。
+
+### 5.2 Explore 目录
+
+| 文件/目录 | 内容 |
+|----------|------|
+| `explore/turbo-lora-A/` | Turbo LoRA 权重 `minimax_h3_turbo_4step.safetensors`（744 MiB）+ 生成脚本 + README |
+| `explore/download_turbo_lora.py` | HuggingFace Turbo LoRA 下载脚本 |
+| `explore/download_turbo_lora_selective.py` | 选择性下载 |
+| `explore/list_larryvrh.py` / `list_lightx2v.py` | HuggingFace 仓库文件列举 |
+| `explore/parallel_download.py` | 并行下载工具 |
+
+---
+
+## 6. 注释
+
+**2.55× 加速比是 vs 无加速的平摊单跑 479 s（含 device_map），而非 vs baseline 的 1212.5 s。**
+188 vs 1212.5 的 6.45× 包含了 page cache 预热收益，只在 repeat ≥ 2 时成立。
+后续任何加速改动以交付基线（188 s）为对照，不再以 baseline 的 1212.5 s 为对照。
