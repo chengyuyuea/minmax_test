@@ -1,0 +1,393 @@
+{
+  "run_id": "batch5_sage_fbcache025_compile-20260928-125513",
+  "argv": [
+    "scripts/run_h3.py",
+    "--prompt-file",
+    "scripts/batch_prompts_20.json",
+    "--batch-limit",
+    "5",
+    "--steps",
+    "50",
+    "--cache-dit",
+    "--cache-dit-threshold",
+    "0.25",
+    "--compile",
+    "--tag",
+    "batch5-sage-compile-fbc025",
+    "--run-id",
+    "batch5_sage_fbcache025_compile-20260928-125513"
+  ],
+  "env": {
+    "hostname": "dsw-1060989-6cb85bf96c-j97fp",
+    "python": "3.12.13",
+    "torch": "2.13.0+cu130",
+    "torch_cuda": "13.0",
+    "cudnn": 92000,
+    "attn_backend": "sage",
+    "diffusers": "0.40.0",
+    "gpu": "NVIDIA A100-SXM4-80GB",
+    "gpu_capability": "8.0",
+    "driver": "550.163.01",
+    "flash_attn": "2.8.3",
+    "sageattention": "2.2.0",
+    "triton": "3.7.1",
+    "host_mem_total_gib": 122.8,
+    "host_mem_available_gib": 116.0,
+    "host_cached_gib": 110.8
+  },
+  "started_at": "2026-09-28T12:55:13",
+  "hz": 2.0,
+  "wall_seconds": 1122.6,
+  "load_seconds_total": 259.4,
+  "run_seconds_total": 821.4,
+  "overhead_seconds": 41.8,
+  "phase_seconds": {
+    "init": 0.3,
+    "load:before_encode": 0.0,
+    "run:before_encode:0": 0.0,
+    "run:before_encode:1": 0.0,
+    "run:before_encode:2": 0.0,
+    "run:before_encode:3": 0.0,
+    "run:before_encode:4": 0.0,
+    "free:before_encode": 0.3,
+    "load:text_encoder": 126.2,
+    "run:text_encoder:0": 0.9,
+    "run:text_encoder:1": 0.1,
+    "run:text_encoder:2": 0.1,
+    "run:text_encoder:3": 0.1,
+    "run:text_encoder:4": 0.1,
+    "free:text_encoder": 0.3,
+    "load:vae_encoder": 3.5,
+    "run:vae_encoder:0": 0.0,
+    "run:vae_encoder:1": 0.0,
+    "run:vae_encoder:2": 0.0,
+    "run:vae_encoder:3": 0.0,
+    "run:vae_encoder:4": 0.0,
+    "free:vae_encoder": 0.2,
+    "load:denoise": 127.0,
+    "compile:transformer": 0.1,
+    "run:denoise:0": 221.9,
+    "run:denoise:1": 119.1,
+    "run:denoise:2": 128.2,
+    "run:denoise:3": 128.0,
+    "run:denoise:4": 118.1,
+    "free:denoise": 0.4,
+    "load:decode": 2.7,
+    "run:decode:0": 19.9,
+    "encode_mp4:0": 3.9,
+    "run:decode:1": 17.8,
+    "encode_mp4:1": 1.9,
+    "run:decode:2": 17.6,
+    "encode_mp4:2": 2.7,
+    "run:decode:3": 17.7,
+    "encode_mp4:3": 3.8,
+    "run:decode:4": 17.6,
+    "encode_mp4:4": 1.9,
+    "free:decode": 0.4
+  },
+  "phase_io": {
+    "init": {
+      "read_gib": 0.01,
+      "major_faults": 0,
+      "cached_before_gib": 112.0,
+      "cached_after_gib": 112.0
+    },
+    "load:before_encode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 112.0,
+      "cached_after_gib": 112.0
+    },
+    "run:before_encode:0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 112.0,
+      "cached_after_gib": 112.0
+    },
+    "run:before_encode:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 112.0,
+      "cached_after_gib": 112.0
+    },
+    "run:before_encode:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 112.0,
+      "cached_after_gib": 112.0
+    },
+    "run:before_encode:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 112.0,
+      "cached_after_gib": 112.0
+    },
+    "run:before_encode:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 112.0,
+      "cached_after_gib": 112.0
+    },
+    "free:before_encode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 112.0,
+      "cached_after_gib": 112.0
+    },
+    "load:text_encoder": {
+      "read_gib": 42.09,
+      "major_faults": 209959,
+      "cached_before_gib": 112.0,
+      "cached_after_gib": 118.5
+    },
+    "run:text_encoder:0": {
+      "read_gib": 0.01,
+      "major_faults": 54,
+      "cached_before_gib": 118.5,
+      "cached_after_gib": 118.1
+    },
+    "run:text_encoder:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.1
+    },
+    "run:text_encoder:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.1
+    },
+    "run:text_encoder:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.1
+    },
+    "run:text_encoder:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.1
+    },
+    "free:text_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.1
+    },
+    "load:vae_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.1
+    },
+    "run:vae_encoder:0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.1
+    },
+    "run:vae_encoder:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.1
+    },
+    "run:vae_encoder:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.1
+    },
+    "run:vae_encoder:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.1
+    },
+    "run:vae_encoder:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.1
+    },
+    "free:vae_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.1
+    },
+    "load:denoise": {
+      "read_gib": 42.26,
+      "major_faults": 221767,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.1
+    },
+    "compile:transformer": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.1
+    },
+    "run:denoise:0": {
+      "read_gib": 0.08,
+      "major_faults": 201,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 116.3
+    },
+    "run:denoise:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 116.3,
+      "cached_after_gib": 116.4
+    },
+    "run:denoise:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 116.4,
+      "cached_after_gib": 116.4
+    },
+    "run:denoise:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 116.4,
+      "cached_after_gib": 116.5
+    },
+    "run:denoise:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 116.5,
+      "cached_after_gib": 116.3
+    },
+    "free:denoise": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 116.3,
+      "cached_after_gib": 116.3
+    },
+    "load:decode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 116.3,
+      "cached_after_gib": 116.2
+    },
+    "run:decode:0": {
+      "read_gib": 0.01,
+      "major_faults": 166,
+      "cached_before_gib": 116.2,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:0": {
+      "read_gib": 0.01,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 110.7
+    },
+    "encode_mp4:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 110.7,
+      "cached_after_gib": 110.7
+    },
+    "run:decode:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 110.7,
+      "cached_after_gib": 110.7
+    },
+    "encode_mp4:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 110.7,
+      "cached_after_gib": 110.8
+    },
+    "run:decode:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 110.8,
+      "cached_after_gib": 110.8
+    },
+    "encode_mp4:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 110.8,
+      "cached_after_gib": 110.8
+    },
+    "run:decode:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 110.8,
+      "cached_after_gib": 110.8
+    },
+    "encode_mp4:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 110.8,
+      "cached_after_gib": 110.8
+    },
+    "free:decode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 110.8,
+      "cached_after_gib": 110.8
+    }
+  },
+  "step_ms_median": 302.5,
+  "step_ms_mean": 3022.5,
+  "steps_counted": 245,
+  "peak_torch_alloc_gib": 71.87,
+  "peak_nvml_used_gib": 76.23,
+  "peak_host_used_gib": 11.2,
+  "tag": "batch5-sage-compile-fbc025",
+  "args": {
+    "prompt": null,
+    "image": null,
+    "last_image": null,
+    "height": 768,
+    "width": 1344,
+    "num_frames": 124,
+    "steps": 50,
+    "seed": 0,
+    "out": "/mnt/workspace/outputs/batch5_sage_fbcache025_compile-20260928-125513/video.mp4",
+    "outputs_dir": "/mnt/workspace/outputs",
+    "model_dir": "/mnt/workspace/MiniMax-H3",
+    "lora": null,
+    "lora_scale": 1.0,
+    "run_id": "batch5_sage_fbcache025_compile-20260928-125513",
+    "runs_dir": "/mnt/workspace/runs",
+    "monitor_hz": 2.0,
+    "tag": "batch5-sage-compile-fbc025",
+    "no_load_opt": false,
+    "parallel_load": false,
+    "profile": false,
+    "cache_dit": true,
+    "cache_dit_threshold": 0.25,
+    "repeat": 1,
+    "reuse_text_embeds": false,
+    "compile": true,
+    "compile_fullgraph": false,
+    "prompt_file": "scripts/batch_prompts_20.json",
+    "batch_limit": 5,
+    "tf32": false,
+    "generator": null
+  },
+  "output": "/mnt/workspace/outputs/batch5_sage_fbcache025_compile-20260928-125513/video-0.mp4",
+  "outputs": [
+    "/mnt/workspace/outputs/batch5_sage_fbcache025_compile-20260928-125513/video-0.mp4",
+    "/mnt/workspace/outputs/batch5_sage_fbcache025_compile-20260928-125513/video-1.mp4",
+    "/mnt/workspace/outputs/batch5_sage_fbcache025_compile-20260928-125513/video-2.mp4",
+    "/mnt/workspace/outputs/batch5_sage_fbcache025_compile-20260928-125513/video-3.mp4",
+    "/mnt/workspace/outputs/batch5_sage_fbcache025_compile-20260928-125513/video-4.mp4"
+  ],
+  "fps": 24,
+  "batch_size": 5,
+  "finished_at": "2026-09-28T13:13:56",
+  "renamed_from": "batch5-compile-20260928-b1"
+}

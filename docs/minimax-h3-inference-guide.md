@@ -1,6 +1,6 @@
 # MiniMax-H3 视频生成推理：从架构原理到加速实践
 
-> **TL;DR** MiniMax-H3 是 33B 参数的多模态视频生成模型，在单卡 A100-80GB 上基线推理需 20 分钟。本文先剖析其「文本编码 → VAE → 打包多模态序列 → 50 层 Transformer 去噪 → 解码」的完整数据流（Part I），再记录三类加速实验（Part II）：加载优化（device_map 直落卡，load −17%，零质量损失）、FBCache 残差缓存（denoise 3.8×，PSNR 16.7）、Turbo LoRA 蒸馏（端到端 3.05×，PSNR 12.8）。核心发现：去噪优化后**加载成为新瓶颈（占 wall 76%）**。
+> **TL;DR** MiniMax-H3 是 33B 参数的多模态视频生成模型，单卡 A100-80GB 无加速冷启动单视频 1269 s（加载 397 s + 去噪 830 s）。本文先剖析其「文本编码 → VAE → 打包多模态序列 → 50 层 Transformer 去噪 → 解码」的完整数据流（Part I），再记录加速实验（Part II）。**所有加速实验只针对 T2VA（文本→视频+音频）模式**（§0 研究范围），所有数字来自同一套软硬件环境。结论：FBCache 把 49 次完整前向降到 8–13 次（denoise 3.6–5.5×，有损）；SageAttention 把注意力 kernel 加速 1.22×、单步 −9.6%，与 FBCache 按乘法叠加；**加载阶段没有单视频加速手段**（固定 ~397 s，受磁盘 ~350 MiB/s 限制，device_map 无效），只能靠阶段主序批处理摊薄；torch.compile 与 Sage+FBCache 叠加在可变 prompt 下出现 2/5 黑帧，**未通过正确性验证**。Sage+FBCache 0.25：单视频冷启动 570 s（2.23×），批处理 N=20 每视频 191 s（6.64×），边际极限 ~171 s/视频。
 
 ## 0. 阅读指南
 
@@ -14,23 +14,52 @@
 | **官方声称** | MiniMax / SGLang 文档原文 | 附文档行号或 URL |
 | **推导** | 由实测数据计算 | 附计算过程 |
 
+### 研究范围：仅 T2VA
+
+H3-Base 支持 T2VA / FL2VA / Ref2VA 三种任务模式（§1），但**本文 Part II 的全部加速实验、耗时和质量数字都只在 T2VA 模式下测得**（768p，1344×768，124 帧，24 fps，50 步）。另外两种模式的状态如下：
+
+| 模式 | 做过什么 | 未做什么 |
+|---|---|---|
+| T2VA | 本文全部实验 | — |
+| FL2VA | 1 次无加速功能性验证（run `fl2va_raw-20260920-234316`，已移入 `runs/bak/`；denoise 977.1 s，step 中位数 20092 ms，比 T2VA 的 ~17000 ms 高约 18%） | 任何加速手段的耗时/质量验证 |
+| Ref2VA | 仅源码分析：denoise 使用的 transformer 与 T2VA 配置相同，注意力无 mask，推断没有 T2VA 之外的新加速杠杆 | 任何运行 |
+
+因此文中的加速比和质量结论**不能直接外推到 FL2VA / Ref2VA**：它们的打包序列更长（含条件帧/参考前缀），FBCache 命中率、SageAttention 收益和显存余量都可能不同，需单独实测。
+
 ### 适用场景与前置知识
 
 本文面向熟悉深度学习基础（Transformer、VAE、扩散模型概念）但不一定了解视频扩散模型的工程师。读者需要理解 PyTorch 推理流程、GPU 显存管理、BF16 混合精度的基本概念。
 
 ### 实验环境摘要
 
-| 项 | 值 | 来源 |
-|---|---|---|
-| GPU | NVIDIA A100-SXM4-80GB, CC 8.0, 108 SM | 实测 |
-| HBM | 79.32 GiB | 实测 |
-| PyTorch | 2.10.0+cu128 | 实测 |
-| diffusers | 0.40.0 | 实测 |
-| CUDA / cuDNN | 12.8 / 9.10.02 | 实测 |
-| Attention 后端 | torch 内建 SDPA (flash kernel) | 实测，无 flash_attn / xformers 包 |
-| TF32 matmul | 禁用 (precision=highest) | 实测 |
+本文只采用当前统一环境的结果；早期其他软件栈下的数字不再进入性能表，也不用于推导。所有新增实验均使用相同硬件、软件、分辨率、帧数、步数、prompt 和 seed。
 
-> 环境指纹完整记录在每个 `runs/<id>/run.json` 的 `env` 段，由 `h3_monitor.py` 的 `env_fingerprint()` 自动采集（源码 `scripts/h3_monitor.py:83-119`）。
+| 项 | 统一环境 | 来源 |
+|---|---|---|
+| GPU / HBM | NVIDIA A100-SXM4-80GB，CC 8.0，79.32 GiB，108 SM | 实测 |
+| 主机内存 | 122.8 GiB（page cache 上限约 112 GiB） | 实测 |
+| PyTorch / CUDA / cuDNN | 2.13.0+cu130 / 13.0 / 9.20.00 | 实测 |
+| diffusers / Triton | 0.40.0 / 3.7.1 | 实测 |
+| Attention 后端 | torch SDPA；SageAttention 2.2.0 | 实测 |
+| TF32 matmul | 禁用（precision=highest） | 实测 |
+
+> 完整环境指纹记录在每个 `runs/<id>/run.json` 的 `env` 段。报告中的主线 run 均已核对为这套环境。
+
+### Run 命名规则
+
+每个 run 的 ID 同时用于 `runs/<id>/`、`outputs/<id>/`、`logs/<id>.log`，格式为 `<方法>-<YYYYMMDD>-<HHMMSS>`，由 `scripts/run_naming.py` 自动生成。<方法> 按固定顺序拼接所有偏离「50 步单视频 T2VA」的手段：
+
+| 段 | 含义 | 例 |
+|---|---|---|
+| `batch<N>` | 阶段主序批处理 N 个不同 prompt（§13） | `batch20` |
+| `fl2va` | FL2VA 模式 | `fl2va` |
+| `sage` | SageAttention 后端（§12） | `sage` |
+| `fbcache<ttt>` | FBCache，阈值 ×100 补三位（§11） | `fbcache025` = 0.25 |
+| `compile` / `tf32` / `nodevmap` | torch.compile / TF32 / 关闭 device_map 直落 | `compile` |
+| `steps<S>` | 步数不是 50（多为 profile 或加载标定） | `steps2` |
+| `repeat<R>` / `reuse` | 同进程重复 R 次 / 复用文本嵌入（仅作测量手段，不是加速策略） | `repeat2_reuse` |
+
+没有任何手段时为 `raw`。例：`batch20_sage_fbcache025-20260928-114735` = 20 条不同 prompt 批处理 + Sage + FBCache 0.25。`--drop-page-cache`（冷启动）是测量条件而非方法，不进入名字，记录在 `run.json.page_cache.dropped`。早期手动编号（如 `-b1`、`-c1`、`-s1`，分别是第 1 次批处理 / 标定 / sage-only 试跑）已按此规则统一重命名，旧 ID 保留在 `run.json.renamed_from`。
 
 ---
 
@@ -61,7 +90,7 @@ graph TB
     end
 ```
 
-H3-Base 的 diffusers 实现为 `MiniMaxH3ModularPipeline` → `MiniMaxH3Blocks`，将推理拆分为五个顺序阶段（**实测**，源码 `scripts/run_h3.py:36-42` `STAGE_COMPONENTS`）。每个阶段只驻留必要组件，完成后释放显存，使峰值显存退化为最大单组件（~62 GiB transformer）而非全量 ~134 GiB。
+H3-Base 的 diffusers 实现为 `MiniMaxH3ModularPipeline` → `MiniMaxH3Blocks`，将推理拆分为五个顺序阶段（**实测**，源码 `scripts/run_h3.py:37-43` `STAGE_COMPONENTS`）。每个阶段只驻留必要组件，完成后释放显存，使峰值显存退化为最大单组件（~62 GiB transformer）而非全量 ~134 GiB。
 
 ## 2. 文本编码器
 
@@ -77,22 +106,22 @@ H3 使用 Qwen3-VL-32B 作为条件编码器（**实测**，`text_encoder/config
 | FFN intermediate | 25600 | 实测 |
 | 位置编码 | M-RoPE, interleaved, sections [24,20,20] | 实测 |
 
-编码流程：prompt 经 `Qwen2TokenizerFast` 分词后输入 Qwen3-VL，提取第 50 层（从 0 起计）的 `hidden_states` 作为条件向量（**实测**，输出形状 `[1, 65, 5120]`，run `20260902-122314` 的 `events.jsonl` shapes 事件）。
+编码流程：prompt 经 `Qwen2TokenizerFast` 分词后输入 Qwen3-VL，提取第 50 层（从 0 起计）的 `hidden_states` 作为条件向量。条件 token 数随 prompt 长度变化，本文基准狐狸 prompt 为 26 个（**实测**，profile trace 中 Token Refiner 注意力输入为 `[1, 26, 56, 128]`，run `steps2-20260928-202235`）。
 
 编码后经 **Token Refiner** 进一步精炼：2 层 transformer block，含 self-attention + SwiGLU FFN，无 AdaLN / RoPE（**实测**，`transformer/config.json` `num_refiner_layers: 2`）。Refiner 将 `text_dim=5120` 映射到 transformer 的 `hidden_size=5376`。
 
 ```
 输入: prompt (str)
     ↓ Qwen2TokenizerFast
-token_ids [1, 65]
+token_ids [1, 26]
     ↓ Qwen3-VL Layer 0-63, take hidden_states[50]
-prompt_embeds [1, 65, 5120]
+prompt_embeds [1, 26, 5120]
     ↓ context_embedder Linear(5120, 5376)
     ↓ Token Refiner (2 blocks, self-attn + SwiGLU)
-text_cond [1, 65, 5376]
+text_cond [1, 26, 5376]
 ```
 
-> **Text Encoder 最终输出**：`[1, 65, 5376]`（65 text tokens，projected to transformer hidden dim）
+> **Text Encoder 最终输出**：`[1, 26, 5376]`（26 text tokens，projected to transformer hidden dim）
 
 ## 3. 视频与音频 VAE
 
@@ -159,8 +188,8 @@ H3 的核心是一个 33.12B 参数的密集 Transformer（**推导**，基于 `
 graph TB
     IN_V["video latents [1, 37296, 24]"] --> PROJ_V["proj_in (fp32) 24→5376"]
     IN_A["audio latents [1, 414, 32]"] --> PROJ_A["audio_proj_in (fp32) 32→5376"]
-    IN_T["text cond [1, 65, 5120]"] --> REF["Token Refiner 2L 5120→5376"]
-    PROJ_V --> PACK["打包序列 37775 tokens"]
+    IN_T["text cond [1, 26, 5120]"] --> REF["Token Refiner 2L 5120→5376"]
+    PROJ_V --> PACK["打包序列 37736 tokens"]
     PROJ_A --> PACK
     REF --> PACK
     TS["timestep + modality tags"] --> ADALN["AdaLN 调制"]
@@ -192,16 +221,16 @@ graph TB
 
 ### 4.2 多模态打包序列
 
-三种模态的 token 被**拼接为单一序列**进行**全自注意力**，无 cross-attention、无 mask（**实测**，`events.jsonl` 的 shapes 事件验证）：
+三种模态的 token 被**拼接为单一序列**进行**全自注意力**，无 cross-attention、无 mask（**实测**，profile trace 的 `Input Dims`：50 个 block 的注意力输入均为 `[1, 37736, 56, 128]`，run `steps2-20260928-202235`）：
 
 > 【相比于 cross-attention 架构（如 SD3/Flux），H3 将三种模态合并为单一序列做全自注意力】
 
 | 模态 | token 数 | 通道 | 占比 |
 |---|---|---|---|
-| text | 65 | 5120 → 5376 | 0.17% |
+| text | 26（随 prompt 变化） | 5120 → 5376 | 0.07% |
 | audio | 414 | 32 → 5376 | 1.10% |
-| video | 37296 | 24 → 5376 | 98.73% |
-| **总计** | **37775** | — | 100% |
+| video | 37296 | 24 → 5376 | 98.83% |
+| **总计** | **37736** | — | 100% |
 
 这意味着每次自注意力的计算量与序列长度平方成正比，video token 既是主要计算来源也是唯一值得压缩的目标。
 
@@ -210,17 +239,17 @@ graph TB
 每个 Transformer Block 的数据流：**AdaLN 调制 → RMSNorm → Self-Attention (QK-Norm + 3D MM-RoPE) → 门控残差 → AdaLN → RMSNorm → SwiGLU FFN → 门控残差**。注意力使用 QK-Norm（独立 RMSNorm，`qk_norm_eps=1e-5`）确保训练稳定性（**实测**，config.json）。
 
 ```
-x [1, 37775, 5376]           # packed sequence (text + audio + video)
+x [1, 37736, 5376]           # packed sequence (text + audio + video)
     ↓ AdaLN modulation (scale₁, shift₁, gate₁ ← timestep + modality)
     ↓ RMSNorm
     ↓ Self-Attention (56 heads, head_dim=128, QK-Norm, 3D MM-RoPE)
     ↓ gate₁ · attn_out + x   # gated residual
-x' [1, 37775, 5376]
+x' [1, 37736, 5376]
     ↓ AdaLN modulation (scale₂, shift₂, gate₂)
     ↓ RMSNorm
     ↓ SwiGLU FFN (5376 → 14336 → 5376)
     ↓ gate₂ · ffn_out + x'   # gated residual
-out [1, 37775, 5376]
+out [1, 37736, 5376]
 ```
 
 ### 4.4 AdaLN 调制机制
@@ -231,7 +260,7 @@ AdaLN 是 H3 中**唯一的模态特异性来源**。3 个 modality tag（video=
 
 位置编码使用 3 轴旋转位置编码（**实测**，`rope_freq_dim=16`, `rope_theta=10000.0`）：每轴 16 个频率，每个频率贡献 sin+cos 两个分量，总计旋转 `3 × 16 × 2 = 96` 个通道，占 head_dim=128 的 75%（**推导**）。视频 token 使用 (t, h, w) 三维坐标；音频 token 使用时间轴坐标；文本 token 使用序列位置。
 
-> **Omni-Transformer 最终输出**：`[1, 37775, 5376]` → unpack → video `[1, 37296, 24]` + audio `[1, 414, 32]`（经 proj_out 还原至各模态 latent 维度）
+> **Omni-Transformer 最终输出**：`[1, 37736, 5376]` → unpack → video `[1, 37296, 24]` + audio `[1, 414, 32]`（经 proj_out 还原至各模态 latent 维度）
 
 ## 5. 去噪过程
 
@@ -249,14 +278,14 @@ H3 使用 **Rectified Flow** 而非传统 DDPM（**实测**，`scheduler/schedul
 
 每步 Euler 更新：x_{t-1} = x_t + (σ_{t-1} - σ_t) · v(x_t, t)。
 
-**关键细节**：`--steps 50` 生成 50 个 sigma 网格点（含末尾 σ=0），实际只执行 **49 次** transformer 前向（**实测**，`steps_counted=49`，run `20260902-115310`；**官方声称**也做了相同解释）。
+**关键细节**：`--steps 50` 生成 50 个 sigma 网格点（含末尾 σ=0），实际只执行 **49 次** transformer 前向（**实测**，`steps_counted=49`，cold run `raw-20260929-103055`；**官方声称**也做了相同解释）。
 
 ```
 σ_grid = scheduler.sigmas        # [50] values, σ₀≈1.0 → σ₄₉=0.0
-x₀ ~ N(0, I)                     # [1, 37775, 5376] packed noise
+x₀ ~ N(0, I)                     # [1, 37736, 5376] packed noise
 
 for t in 0..48:                   # 49 iterations
-    v = transformer(xₜ, σₜ)      # velocity prediction [1, 37775, 5376]
+    v = transformer(xₜ, σₜ)      # velocity prediction [1, 37736, 5376]
     xₜ₊₁ = xₜ + (σₜ₊₁ − σₜ) · v  # Euler update
 
 x₄₉ → unpack → video_pred [1, 37296, 24] + audio_pred [1, 414, 32]
@@ -272,7 +301,7 @@ x₄₉ → unpack → video_pred [1, 37296, 24] + audio_pred [1, 414, 32]
 
 ```mermaid
 graph LR
-    subgraph "text_encoder ~0.5s"
+    subgraph "text_encoder ~0.9s"
         A["Prompt"] --> B["Qwen2Tokenizer"]
         B --> C["Qwen3-VL 64L"]
         C --> D["hidden[50] [1,65,5120]"]
@@ -281,8 +310,8 @@ graph LR
     subgraph "vae_encoder ~0s (T2VA跳过)"
         F["随机噪声初始化"]
     end
-    subgraph "denoise ~832s"
-        E --> G["Pack [text 65 | audio 414 | video 37296]"]
+    subgraph "denoise ~829s"
+        E --> G["Pack [text 26 | audio 414 | video 37296]"]
         F --> G
         G --> H["50 Blocks × 49 Steps"]
         H --> I["Unpack → video/audio preds"]
@@ -299,21 +328,21 @@ graph LR
 
 | 阶段 | 输入形状 | 输出形状 | 来源 |
 |---|---|---|---|
-| tokenize | prompt string | input_ids [1, 65] | 实测 |
-| text_encode | [1, 65] tokens | [1, 65, 5120] | 实测 |
-| token_refine | [1, 65, 5120] | [1, 65, 5376] | 推导 |
+| tokenize | prompt string | input_ids [1, 26] | 实测 |
+| text_encode | [1, 26] tokens | [1, 26, 5120] | 实测 |
+| token_refine | [1, 26, 5120] | [1, 26, 5376] | 推导 |
 | video proj_in | noise [1, 37, 48, 84, 24] | [1, 37296, 5376] | 推导 |
 | audio proj_in | noise [1, 414, 32] | [1, 414, 5376] | 推导 |
-| pack | 三路拼接 | [1, 37775, 5376] | 推导 |
-| transformer ×49 | [1, 37775, 5376] | [1, 37775, 5376] | 推导 |
+| pack | 三路拼接 | [1, 37736, 5376] | 推导 |
+| transformer ×49 | [1, 37736, 5376] | [1, 37736, 5376] | 推导 |
 | video decode | [1, 24, 37, 48, 84] | [1, 3, 124, 768, 1344] | 推导 |
 | audio decode | [1, 32, 414] | [2, ~165333] stereo | 推导 |
 
 ---
 
-至此我们已完整追踪了从文本 prompt 到视频 MP4 的全链路数据流。理论分析揭示了两个关键瓶颈：**33B 密集 Transformer 的 49 次串行前向**（每次处理 37775 token 的全序列自注意力，~17s/步）和**分阶段权重加载的 mmap 串行 I/O**（~350s）。Part II 将围绕这两个瓶颈展开实测加速实验。
+至此我们已完整追踪了从文本 prompt 到视频 MP4 的全链路数据流。理论分析揭示了两个关键瓶颈：**33B 密集 Transformer 的 49 次串行前向**（每次处理 37736 token 的全序列自注意力，~17s/步）和**分阶段权重加载的 mmap 串行 I/O**（冷启动 ~397 s）。Part II 将围绕这两个瓶颈展开实测加速实验。
 
-> **Part I 要点回顾**：H3-Base 由 Qwen3-VL 文本编码器（62 GiB）、因果 VAE（空间 16×/时间 4× 压缩）、33B 密集 Omni-Transformer（50 blocks，打包序列 37775 tokens）和 Rectified Flow 调度器组成。单卡 A100 需分阶段 load/free，峰值显存 ~73 GiB / 79 GiB。
+> **Part I 要点回顾**：H3-Base 由 Qwen3-VL 文本编码器（62 GiB）、因果 VAE（空间 16×/时间 4× 压缩）、33B 密集 Omni-Transformer（50 blocks，打包序列 37736 tokens）和 Rectified Flow 调度器组成。单卡 A100 需分阶段 load/free，单视频峰值 NVML 70.6 GiB / 79.3 GiB。
 
 ## Part II: 加速实践
 
@@ -327,200 +356,277 @@ graph LR
 |---|---|---|
 | 回归夹具 | `scripts/bench_768p.sh` | 锁定参数：1344×768, 124 帧, 24 fps, 50 步, seed 0 |
 | 监控 | `scripts/h3_monitor.py` | 2 Hz GPU/host/IO 采样, CUDA Event 步级计时, 环境指纹 |
-| 报告 | `scripts/h3_report.py` | 性能对比表 + 配置漂移检测 + PSNR/SSIM/SNR 质量门禁 |
+| 报告 | `scripts/h3_report.py` | 性能汇总；同 prompt/seed 的成片视频 PSNR/SSIM 与 decoded-audio SNR；可选阈值门禁 |
 
 ### 7.2 方法论纪律
 
 1. **单变量**：一次只动一个杠杆，tag 标注所测内容。`probe-` 前缀标记不可比的探针 run。
-2. **配置漂移检测**：`h3_report.py` 自动 diff 环境指纹，任何隐性变量变化都会被标记。
-3. **质量门禁**：与 lossless baseline 比 PSNR / SSIM / audio SNR。"只有速度没有质量不算结果"。
+2. **环境证据**：每个 `run.json.env` 保存软件与硬件指纹；比较前核对关键字段一致，不声称脚本自动完成全部配置 diff。
+3. **质量测量/门禁**：以相同 prompt/seed 的 raw H.264/AAC 成片为参考，测视频 PSNR/SSIM 和解码后 32 kHz 双声道波形 SNR；传入三个 `--min-*` 阈值时才判 PASS/FAIL，未传阈值只报告测量值。这里不是 lossless 比较。
 4. **证据溯源**：每轮开跑前写 `cmd.txt`（原始 argv + 解析后 args），崩溃也能回溯。
+
+质量复现命令：
+
+```bash
+python3 scripts/h3_report.py --quality-reference raw-20260929-103055 \
+  --quality-target sage-20260928-165335 \
+  --quality-target fbcache025-20260928-203358 \
+  --quality-target sage_fbcache015-20260928-200056 \
+  --quality-target sage_fbcache020-20260928-201152 \
+  --quality-target sage_fbcache025-20260928-204352 \
+  --quality-json logs/quality-fox-vs-raw.json
+```
+
+如需门禁，在命令中加入 `--min-psnr`、`--min-ssim`、`--min-audio-snr`；阈值需由业务验收标准给出，本文不擅自设定。
 
 ### 7.3 噪声底测量
 
 | 指标 | 值 | 来源 |
 |---|---|---|
-| 轮内 step 漂移 | 0.34% (17020→16962 ms, 单调下降) | 实测, `20260902-115310` |
-| 轮间 denoise 方差 | 0.02% (832.451 vs 832.324 s) | 实测, baseline vs baseline-2 |
-| 轮间输出一致性 | bit-identical | 实测 |
+| 轮间冷加载波动 | 396.6 / 396.8 / 396.8 / 397.0 / 397.2 s（5 次默认配置冷启动，极差 0.15%） | 实测，`steps2_repeat2_reuse-20260928-145944` / `-150823`、`sage-20260928-165335`、`sage_fbcache020-20260928-201152`、`sage_fbcache015-20260928-200056` |
+| 同进程重复 denoise | 151.3 vs 151.2 s（0.07%）；137.3 vs 136.7 s（0.4%） | 实测，`fbcache025_repeat2_reuse-20260920-181316`、`sage_fbcache025_repeat2_reuse-20260920-211122` |
+| 同配置输出一致性 | 上述两个 run 的 video-0 / video-1 MD5 相同（bit-identical） | 实测 |
+| profiler 开销 | 单步 17046.8 → 17195.9 ms（+0.9%，SDPA）；15407.1 → 15616.2 ms（+1.4%，Sage） | 实测，`--profile` run vs 50 步 run |
 
-**结论**（**推导**）：小于 1% 的"加速"在当前夹具下不可区分，需多轮配对统计。
+**结论**（**推导**）：小于 1% 的"加速"在当前夹具下不可区分，需多轮配对统计。同配置输出 bit-identical，因此不同配置之间的 PSNR/SSIM 差异全部来自被测手段，而不是随机性。
+
+### 7.4 耗时口径统一
+
+历史 run 的 load 从 15 s 到 488 s 不等，主要原因不是配置，而是启动时 page cache 中残留了多少模型文件。T2VA 共需读取约 134 GiB 权重（text_encoder 62.2 + VAE 10.3 + transformer 61.7 GiB），超过约 112 GiB 的 page cache 上限，前一次运行会改变下一次运行的命中率。
+
+统一方法如下：
+
+1. 可比的冷启动运行都加 `--drop-page-cache`，用 `posix_fadvise(POSIX_FADV_DONTNEED)` 将模型文件逐出 page cache；`run.json.page_cache.dropped=true` 是判据。
+2. 两次独立标定得到固定加载常数 **L_cold = 396.7 s**（396.6 / 396.8 s）：text_encoder 183.3 + VAE 29.4 + transformer 180.4 + decode VAE 3.5 s，共读 134.1 GiB，约 350 MiB/s。之后 3 次带加速手段的冷启动实测 396.8 / 397.0 / 397.2 s，说明加速手段不影响加载，L_cold 可作为所有配置共用的常数。
+3. 每个配置报告与加载无关的边际成本 **M = (wall − Σload:\*) / N**，再统一合成：
+
+| 场景 | 公式 | 适用情形 |
+|---|---|---|
+| 冷启动单视频 | T_cold = L_cold + M | 每个请求启动一个进程 |
+| 批处理 N 个不同 prompt | T_batch(N) = L_cold / N + M | 阶段主序批处理（§13） |
+
+同 prompt 的 `--reuse-text-embeds` 不代表真实工作负载，本文不报告「同 prompt 暖态」耗时，也不把 reuse 列为加速策略。主表中的单视频配置均为冷启动、单视频、无 reuse；raw 基准也已由 `raw-20260929-103055` 完成 cold 实测。`repeat2_reuse` run 只用于 §7.3 的噪声底和 MD5 一致性校验。跨配置一律比较 M 或统一 T，不横比非 cold 的实测 load。
+
+**各阶段耗时分解表**是本文的标准呈现方式（§8.1、§11.2、§13.2、§15.1）：行为阶段，列为配置，单位是秒/视频，最后给出 M 与统一 T。表格由 `python3 scripts/stage_table.py <run_id> ...` 直接从 `run.json` 生成，不手填。
 
 ## 8. Baseline 剖析
 
-基准 run：`20260902-115310`（tag `baseline`）。
+统一基准 run：`raw-20260929-103055`（默认 SDPA、50 步、seed 0、狐狸 prompt、`--drop-page-cache`）。这里的 raw 表示没有启用 SageAttention、FBCache、compile 等加速；SDPA 正是 diffusers/PyTorch 默认注意力后端，不是额外优化。`run.json.page_cache.dropped=true`，实测 wall 1269.0 s、load 396.9 s、denoise 829.9 s、49 次前向。输出与早期同 prompt/seed raw run 的 MP4 MD5 完全一致。
 
-### 8.1 耗时分布
+### 8.1 各阶段耗时
 
-| 阶段 | 秒 | 占 wall | 来源 |
-|---|---|---|---|
-| 加载 (all load:\*) | 353.2 | 29.1% | 实测 |
-| 去噪 (run:denoise) | 832.5 | 68.6% | 实测 |
-| 解码 (run:decode) | 19.7 | 1.6% | 实测 |
-| 其余 | 7.1 | 0.6% | 实测 |
-| **wall** | **1212.5** | 100% | 实测 |
+| 阶段 | 秒/视频 | 占实测 wall | 来源 |
+|---|---:|---:|---|
+| 冷加载 | 396.9 | 31.3% | 实测 |
+| 文本编码 | 0.8 | 0.1% | 实测 |
+| denoise | 829.9 | 65.4% | 实测 |
+| decode | 20.0 | 1.6% | 实测 |
+| MP4 | 3.4 | 0.3% | 实测 |
+| free + 其他 | 18.0 | 1.4% | 推导 |
+| **M** | **872.1** | 68.7% | 推导 |
+| **T_cold** | **1269.0** | 100% | 实测 wall |
+
+单步中位数 17064.6 ms，49 次 transformer 前向；峰值 torch alloc 68.1 GiB、NVML 70.6 GiB。
 
 ### 8.2 Kernel 归因
 
-来自 profile run `20260902-122314`（`--steps 2`, 1 次前向，**实测**）：
+`--steps 2 --profile` 在同一环境记录一次完整 transformer 前向（`--steps 2` 只执行 1 次前向，§5.2）。下表取 `denoise_kernels.txt` 的 kernel 行（Self CUDA）：
 
-| Kernel 类别 | Self CUDA 占比 | calls | 来源 |
-|---|---|---|---|
-| Flash Attention (`pytorch_flash::flash_fwd_kernel`) | **58.75%** | 52 | 实测 |
-| bf16 GEMM (`aten::mm`) | **31.57%** | 312 | 实测 |
-| 其余 (mul/cat/rms_norm/add/silu/gather) | <10% | — | 实测 |
+| 类别 | kernel | CUDA 时间 | 占比 | 说明 |
+|---|---|---:|---:|---|
+| 注意力 | `pytorch_flash::flash_fwd_kernel` | 10.050 s | **58.8%** | 52 次：50 个 block `[1, 37736, 56, 128]` + 2 次 Token Refiner |
+| GEMM | `ampere_bf16_s16816gemm_*` | 5.396 s | 31.6% | QKV/O 投影与 SwiGLU FFN |
+| 其余 | mul / cat / RMSNorm / add / silu / gather 等 | 1.648 s | 9.6% | 逐元素与归一化 |
+| **合计** | — | **17.094 s** | 100% | 与单步中位数一致 |
 
-主体全部跑在 bf16 (`ampere_bf16_s16816gemm`)。因此 `tf32_matmul=False` **不是杠杆**——TF32 只影响 norm 的 ~0.02B fp32 参数。未装 flash-attn 包，但已走 torch 内建 flash kernel。
+Run：`steps2-20260928-202235`（**实测**）。表中 `Command Buffer Full` 是 CPU 端 launch 队列满的 profiler 标注，与 kernel 时间重叠，不计入。
 
-### 8.3 显存画像
+单个 block 的注意力 FLOPs = 4·N²·d·H = 4 × 37736² × 128 × 56 ≈ 4.08 × 10¹³（QK^T 与 PV 各占一半），flash kernel 每 block 约 201 ms，实际约 203 TFLOPS，达到 A100 BF16 峰值 312 TFLOPS 的 65%（**推导**）。注意力已经是高效的 tensor core 计算，进一步加速只能靠更低精度的 tensor core，这正是 SageAttention 的思路（§12）；占 31.6% 的 GEMM 不受注意力后端影响。
 
-| 指标 | 值 | 来源 |
-|---|---|---|
-| torch peak alloc | 68.3 GiB | 实测 |
-| torch peak reserved | 72.3 GiB | 实测 |
-| NVML peak used | 73.5 GiB | 实测 |
-| HBM 余量 | 5.8 GiB (of 79.3) | 推导 |
-| 主机内存峰值 | 9.7 GiB | 实测 |
+### 8.3 关键 timeline 结论
 
-### 8.4 关键 timeline 读图结论
-
-1. **加载带宽受限**：两段 load 期显存直线上升，读速恒定 ~370 MiB/s（**推导**：62 GiB / 171 s），走 mmap + page fault 路径（**实测**，`rchar` 贴零而 `read_bytes` 稳定）。
-2. **RSS 锯齿**：进程 RSS 在 1.5–12 GiB 间剧烈锯齿 ~25 周期 → 逐分片 map→拷贝→释放。
-3. **Compute-bound**：denoise 段 SM util 钉 100%、mem util 5–25%、功耗 300–420 W。
+1. **加载带宽受限**：冷读 134.1 GiB / 396.7 s，约 350 MiB/s；mmap page fault 路径使 RSS 呈分片加载锯齿。
+2. **denoise 计算受限**：SM 利用率接近 100%，单步约 17 s。
+3. **瓶颈会迁移**：压缩 denoise 后，单视频由 load 主导；批处理摊薄 load 后，denoise 再次成为主瓶颈。
 
 ## 9. 加速策略全景
 
-| 策略类别 | 具体方法 | 单卡 diffusers 可用？ | 备注 |
+| 作用阶段 | 方法 | 当前状态 | 本机结论 |
 |---|---|---|---|
-| 并行 | Ulysses / Ring / TP | 否（多卡） | 官方声称 |
-| 精度 | FP8 / NVFP4 / INT8 | 否 | FP8 A100 未验证, NVFP4 需 CC10.0+ |
-| 缓存 | Cache-DiT / FBCache | 是（**已实现**） | 需自行注册 block |
-| 蒸馏 | Turbo LoRA | 是 | diffusers 内置转换 |
-| 编译 | torch.compile | "低于噪声底"（**官方声称**） | 不推荐 |
-| 图化 | Breakable CUDA Graph | "无实测加速"（**官方声称**） | 不推荐 |
+| load | 阶段主序批处理 | 已验证（§13） | 不缩短一次加载；N=20 将 396.7 s 摊为 19.8 s/视频 |
+| denoise / 前向次数 | FBCache | 已验证（§11） | 阈值 0.15/0.20/0.25 分别约 13/11/8 次完整前向 |
+| denoise / 单次前向 | SageAttention | 已验证（§12） | 注意力 kernel 1.215×；单步 −9.6% |
+| denoise | Turbo LoRA | 当前环境未测 | 历史第三方权重已丢失，不沿用旧环境数字 |
+| denoise | `torch.compile` | 组合验证失败（§14） | Sage+FBCache+compile 的 5 条输出中 2 条黑帧 |
+| denoise | TF32 | 未测 | 不写收益数字 |
+| text encode / decode / MP4 | — | 无已验证手段 | 本项目只报告实测，不虚构收益 |
+| 多卡并行 | Ulysses / Ring / TP | 单卡范围外 | 官方参考：4×H200 lossless 75.10 s；8×B300 最快 19.04 s |
 
-**官方参考数字**（**官方声称**）：4×H200 lossless 75.10 s；quality:high 53.70 s (1.40×, SSIM 0.931, PSNR 28.16)；8×B300 Ulysses8 最快 19.04 s。
+同阶段手段必须独立消融：FBCache 相对 raw、SageAttention 相对 raw 分别测量，组合值只做乘法校验；批处理作用于 load，可与 denoise 优化直接组合。
 
-## 10. 实践 1：加载优化
+## 10. 实践 1：加载阶段——当前没有单视频加速手段
 
-### 10.1 瓶颈分析
+T2VA 冷启动需依次读取约 134 GiB 权重，L_cold = 396.7 s。受控对照如下：
 
-Baseline 加载占 wall 的 29.1%（353.2 s）。Timeline 显示 mmap 单流 ~370 MiB/s，RSS 锯齿表明逐分片串行：safetensors → mmap → host RAM → `.to("cuda")` 逐张量拷贝。
+| 配置 | text_encoder | VAE | transformer | decode VAE | load 合计 | 结论 |
+|---|---:|---:|---:|---:|---:|---|
+| `device_map=cuda`（默认） | 183.3 | 29.4 | 180.4 | 3.5 | 396.6 | 基准 |
+| `--no-load-opt`（host 中转） | 182.5 | 29.6 | 180.5 | 3.6 | 396.2 | 相差 0.1%，噪声内 |
 
-### 10.2 方案：device_map="cuda" 直接落卡
+无 `device_map` 对照 run：`nodevmap_steps2-20260928-152320`。
 
-向 `load_components` 传递 `device_map={"transformer": "cuda", ...}`，让 safetensors 直接映射到 GPU，跳过 host 中转（**实测**，`scripts/run_h3.py:86-91` `load_group` 函数）。
+`device_map` 没有加速，是因为约 350 MiB/s 的磁盘读取才是瓶颈，host→device 拷贝快得多。`--reuse-text-embeds` 只适用于同一 prompt 重复生成，不是通用加载优化，已从主线结论删除。
 
-### 10.3 结果
-
-| 指标 | baseline | load-opt | 变化 | 来源 |
-|---|---|---|---|---|
-| load 总计 | 353.2 s | 292.3 s | **−17.2%** | 实测 |
-| load:denoise | 175.2 s | 128.3 s | −26.8% | 实测 |
-| run:denoise | 832.5 s | 832.2 s | −0.04% (噪声内) | 实测 |
-| wall | 1212.5 s | 1151.6 s | **−5.0%** | 实测 |
-| 输出 | — | bit-identical | 零质量损失 | 实测 |
-
-Run IDs：baseline `20260902-115310`, load-opt `20260903-223811`。
+截至当前实验，**没有找到能降低单视频绝对 load 的代码级手段**。唯一已验证有效的是 §13 的阶段主序批处理：它不缩短一次 396.7 s 加载，而是让 N 个不同 prompt 共享这次加载，使每视频承担 L_cold/N。常驻服务、更快存储、并行分片读取、权重量化后常驻均可能有效，但尚未实测，不能写成已有收益。
 
 ## 11. 实践 2：FBCache 残差缓存
 
-### 11.1 原理
+### 11.1 原理与实现
 
-First Block Cache (FBCache) 利用扩散去噪的时间连续性：相邻步的 transformer 输出变化缓慢。以**第一个 block 的残差变化**（相对 L1 范数）作为全模型跳过的门控——若变化低于阈值，复用上一步全部 block 输出，跳过完整 transformer 前向。
+First Block Cache (FBCache) 利用扩散去噪的时间连续性：以第一个 transformer block 的残差相对 L1 变化作为门控。变化不超过阈值时复用上一步全部 block 的输出，跳过本步剩余 transformer 前向；阈值越高，跳过越激进。
 
-### 11.2 实现
+diffusers 0.40.0 内置 FBCache，但没有为 MiniMax-H3 注册 block。`scripts/run_h3.py:699-720` 在运行时注册 `MiniMaxH3TransformerBlock`、设置 `fbc_inference` context，并在结束后清理 hook；批处理路径还会在每条视频前 `reset_stateful_hooks()`（`scripts/run_h3.py:339-373`），防止不同 prompt 共享残差。
 
-diffusers 0.40.0 内置 FBCache 但**不原生支持 MiniMax-H3**。需要三步工程化（**实测**，`scripts/run_h3.py:334-354`）：
+### 11.2 阈值扫描与完整前向次数
 
-1. **运行时注册** `MiniMaxH3TransformerBlock` 到 `TransformerBlockRegistry`（设置 `return_hidden_states_index=0`）
-2. **手动设置** FBC cache context（`HookRegistry._set_context("fbc_inference")`，denoise loop 不调用 `cache_context()`）
-3. **生成后清理** hooks，防止循环引用导致 62 GiB transformer 在 decode 阶段仍驻留 → OOM
+所有行均为同一机器、同一狐狸 prompt、50 步；0.15/0.20/0.25 均为 Sage+FBCache，0.25 另有 SDPA 独立消融。`T = 396.7 + M`，单位为秒/视频。
 
-### 11.3 阈值扫描结果
+| 配置 | 完整前向/视频（推导） | denoise | M | T | PSNR / SSIM（vs raw） | run ID |
+|---|---:|---:|---:|---:|---:|---|
+| raw SDPA | 49 | 829.9 | 872.1 | 1269.0（实测 wall） | ref | `raw-20260929-103055` |
+| SDPA + FBC 0.25 | 8.02 | 151.5 | 185.0 | 581.7 | 17.44 / 0.736 | `fbcache025-20260928-203358` |
+| Sage + FBC 0.15 | 13.03 | 206.9 | 247.2 | 643.9 | 20.05 / 0.784 | `sage_fbcache015-20260928-200056` |
+| Sage + FBC 0.20 | 11.02 | 176.7 | 217.2 | 613.9 | 17.97 / 0.759 | `sage_fbcache020-20260928-201152` |
+| Sage + FBC 0.25 | 8.02 | 136.9 | 172.8 | 569.5 | 17.62 / 0.744 | `sage_fbcache025-20260928-204352` |
 
-| threshold | denoise (s) | denoise 加速 | wall (s) | wall 加速 | PSNR | SSIM | run ID |
-|---|---|---|---|---|---|---|---|
-| — (baseline) | 832.5 | 1.00× | 1212.5 | 1.00× | ∞ (ref) | 1.0 | `20260902-115310` |
-| 0.10 | 300.0 | **2.78×** | 598.1 | 2.03× | 16.12 | 0.6534 | `20260903-235706` |
-| 0.15 | 217.0 | **3.84×** | 534.7 | 2.27× | 16.67 | 0.6614 | `20260903-233910` |
-| 0.25 | 150.4 | **5.54×** | 457.7 | 2.65× | 14.49 | 0.5374 | `20260903-234840` |
+完整前向次数由 step mean/median 反推：`k = N × (mean − median) / (t_full − median)`；`t_full` 分别取 SDPA 17046.8 ms、Sage 15407.1 ms。冷启动 0.25 输出与旧 repeat run 的 MD5 完全一致，证明改测量口径没有改变生成结果。
 
-所有数据均为**实测**（PSNR/SSIM 由 h3_report.py 后处理计算）。
+### 11.3 为什么测 0.15
 
-### 11.4 质量-速度权衡分析
+0.15 的 denoise 确实比 0.25 长，但仍比仅 Sage 的 749.9 s 快 3.62×，且相对 raw 的 PSNR 比 0.25 高 2.43 dB。它用于量出速度—质量曲线，不是为了替代最快配置：质量优先选 0.15，速度优先选 0.25；0.20 只比 0.25 提高 0.35 dB，却多用 39.8 s denoise，性价比较低。质量数字只覆盖一个 prompt，选择阈值前仍需用业务样本集复核。
 
-**t=0.15 为 Pareto 推荐点**（**推导**）：相比 t=0.10，denoise 再快 38% 而 PSNR 反升 0.55 dB（阈值过低导致不该跳的步也跳了，引入累积误差）；相比 t=0.25，PSNR 高 2.18 dB 而仅慢 44%。SSIM 0.66 表示结构基本保持但细节有损，适合预览和快速迭代场景。
+## 12. 实践 3：SageAttention
 
-## 12. 实践 3：Turbo LoRA（非官方参考）
+### 12.1 A100 sm80 的实际执行路径
 
-### 12.1 原理
+SageAttention 2.2.0 在 A100（sm80）调用 `sageattn_qk_int8_pv_fp16_cuda`：
 
-Turbo LoRA 是第三方社区权重（larryvrh, Apache 2.0 许可），通过蒸馏训练使模型在 4–8 步内收敛（**官方声称**，SGLang cookbook）。基础模型为 Comfy-Org/MiniMax-H3。
+1. 对 K 沿 token 维求均值并减均值（`smooth_k=True`）。这只给每个 query 行的 score 增加同一常数，softmax 后结果不变，却能缩小 K 的动态范围。
+2. Q/K 按 per-thread 粒度量化为 INT8（Q block 128/warp 32，K block 64/warp 64），让 QKᵀ 使用 INT8 tensor core。
+3. V 转为 FP16；PV 仍为 FP16 输入、FP32 累加。A100 没有 FP8 路径，因此 PV 不会获得低精度加速。
+4. softmax、指数、缩放、反量化仍产生 CUDA core 和访存开销。
 
-### 12.2 diffusers 内置转换
+接入只需 `DIFFUSERS_ATTN_BACKEND=sage`。diffusers 要求 SageAttention ≥2.1.1；本机使用源码编译的 2.2.0。
 
-`MiniMaxH3ModularPipeline` 继承 `MiniMaxH3LoraLoaderMixin`，原生支持 `load_lora_weights` / `fuse_lora` / `unload_lora_weights`。diffusers 0.40.0 内置 `_convert_non_diffusers_minimax_h3_lora_to_diffusers` 完成全部键名转换（前缀重映射、融合 qkv 拆分、MLP 半交换、kohya 格式折叠），无需手工处理（**实测**，`scripts/run_h3.py:326-331`）。
+### 12.2 独立消融与 profiler 归因
 
-### 12.3 结果
+| 指标 | SDPA | Sage | 变化 |
+|---|---:|---:|---:|
+| denoise | 829.9 s | 749.9 s | −9.6% |
+| 完整单步中位数 | 17064.6 ms | 15407.1 ms | −9.7% |
+| T | 1269.0 s | 1186.7 s | 1.069× |
+| PSNR / SSIM（vs raw） | ref | 29.11 / 0.933 | 轻微数值漂移 |
+| NVML 峰值 | 70.6 GiB | 70.5 GiB | 基本不变 |
 
-| 指标 | baseline (50步/49次) | Turbo (5步/4次) | 变化 | 来源 |
-|---|---|---|---|---|
-| run:denoise | 832.5 s | 68.0 s | **12.24× 加速** | 实测 |
-| step median | 16980 ms | 17004 ms | +0.14% (噪声内) | 实测 |
-| wall | 1212.5 s | 397.6 s | **3.05× 加速** | 实测 |
-| PSNR vs baseline | ∞ | 12.78 | — | 实测 |
-| SSIM vs baseline | 1.0 | 0.467 | — | 实测 |
+为解释 Sage 为什么只带来约 9.6% 整步收益，另跑两次 `--steps 2 --profile` 诊断：一次保持默认 SDPA，一次切换 Sage。它们只执行 1 次 transformer 前向，用于记录 kernel 构成，不是新的生产配置，也不替代上面的 50 步性能 run（SDPA：`steps2-20260928-202235`；Sage：`sage_steps2-20260928-202608`）：
 
-Run ID：`20260903-001102`。
+| CUDA 时间 | SDPA | Sage |
+|---|---:|---:|
+| attention 主 kernel | 10.050 s（58.79%） | 8.269 s（53.49%） |
+| Sage 量化、V 转换、减均值等额外开销 | — | 约 0.190 s |
+| 非注意力部分 | 7.044 s | 7.001 s |
+| Self CUDA 合计 | 17.094 s | 15.460 s |
 
-### 12.4 质量代价
+主 kernel 加速 1.215×，计入额外开销后注意力部分约 1.188×。Amdahl 预测整步节省 `(10.050−8.459)/17.094 = 9.3%`，实测为 9.6%，相符。理论上 INT8 峰值 624 TOPS、BF16 峰值 312 TFLOPS，但只有约一半注意力 FLOPs（QKᵀ）能提速，上限约 1.33×；实测 1.215×，约取得理论可得收益的 71%。这也解释了为什么达不到某些社区配置宣称的约 28%。
 
-PSNR 12.78 / SSIM 0.47 表示输出与 50 步 baseline 存在显著差异。这是**预期的**：蒸馏 LoRA 改变了生成轨迹，输出是不同但合理的视频，而非同一视频的降质版本。单步延迟不变 (~17000 ms) 确认加速完全来自步数减少。
+### 12.3 与 FBCache 的正交性
 
-## 13. 综合对比与展望
+FBCache 减少完整前向次数，Sage 缩短每次前向；0.25 下两者都约执行 8.02 次完整前向。乘法预测 `151.5 × 749.9 / 829.9 = 136.9 s`，组合实测 136.9 s。两者互不干扰，Sage 的贡献应报告为约 −9.6%，不能只报告组合后少掉的绝对秒数。
 
-### 全量性能对比表
+## 13. 实践 4：阶段主序批处理
 
-| run ID | tag | wall (s) | load (s) | denoise (s) | step med (ms) | peak HBM | vs base | PSNR | SSIM |
-|---|---|---|---|---|---|---|---|---|---|
-| 20260902-115310 | baseline | 1212.5 | 353.2 | 832.5 | 16980 | 72.3 | 1.00× | ref | ref |
-| 20260903-001950 | baseline-2 | 1170.5 | 311.5 | 832.3 | 16971 | 72.3 | 1.04× | ∞ | 1.0 |
-| 20260903-223811 | load-opt | 1151.6 | 292.3 | 832.2 | 16984 | 72.2 | 1.05× | ∞ | 1.0 |
-| 20260903-235706 | cache-dit t=0.10 | 598.1 | 271.4 | 300.0 | 356 | 72.2 | 2.03× | 16.12 | 0.65 |
-| 20260903-233910 | cache-dit t=0.15 | 534.7 | 290.9 | 217.0 | 355 | 72.2 | 2.27× | 16.67 | 0.66 |
-| 20260903-234840 | cache-dit t=0.25 | 457.7 | 280.5 | 150.4 | 355 | 72.2 | 2.65× | 14.49 | 0.54 |
-| 20260903-001102 | turbo-lora 4step | 397.6 | 302.8 | 68.0 | 17004 | 72.9 | 3.05× | 12.78 | 0.47 |
-| 20260904-105029 | turbo+cachedit t=0.15 | 390.3 | 294.9 | 68.0 | 16994 | 72.9 | 3.11× | — | — |
+### 13.1 实现
 
-所有数据均为**实测**。
+`run_h3.py --prompt-file <json>` 按“组件阶段 × 视频”执行：组件只加载一次，依次处理 N 个不同 prompt 后释放。这不是 tensor batch；每条视频仍单独前向。denoise 后 latents 暂存 CPU，decode 前移回 GPU；FBCache 状态在视频间重置。基准集为 `scripts/batch_prompts_20.json`。
 
-> **关键结论**
-> 1. FBCache t=0.15 是 50 步推理的最佳单一加速策略（denoise 3.8×），但质量有损（PSNR 16.7）
-> 2. Turbo LoRA 端到端最快（3.05×），但属非官方蒸馏路线
-> 3. 两者不可叠加——竞争同一个量（完整前向次数）
-> 4. 所有 denoise 优化之后，**加载成为主瓶颈**（76%），下一步应攻击 load 路径或转向常驻服务
+### 13.2 N-scaling 与阶段分解
 
-### 策略正交性分析
+配置为 Sage + FBCache 0.25，单位为秒/视频。统一 `T_batch = 396.7/N + M`。
 
-**Turbo LoRA 与 FBCache 不可叠加**（**实测**，run `20260904-105029`）：Turbo 将步数压到 4 次后，相邻步状态跨度极大，FBCache 的残差变化永远超过阈值，一次都跳不掉。两者竞争的是同一个量——完整 transformer 前向的次数。验证：turbo+cachedit 的输出与 turbo-only 的 MD5 逐字节相同（**实测**）。
+| 阶段 | N=5 | N=10 | N=20 |
+|---|---:|---:|---:|
+| load（统一摊薄） | 79.3 | 39.7 | 19.8 |
+| text encode | 0.3 | 0.2 | 0.1 |
+| denoise | 144.3 | 144.2 | 144.8 |
+| decode | 18.0 | 17.8 | 17.7 |
+| MP4 | 3.2 | 3.1 | 3.3 |
+| free + other | 6.5 | 5.6 | 5.3 |
+| M | 172.2 | 170.9 | 171.3 |
+| **T_batch** | **251.6** | **210.6** | **191.1** |
+| NVML 峰值 | 69.5 GiB | 72.9 GiB | 73.7 GiB |
+| run ID | `batch5_sage_fbcache025-20260928-105413` | `batch10_sage_fbcache025-20260928-111414` | `batch20_sage_fbcache025-20260928-114735` |
 
-### 瓶颈转移
+M 在 N=5/10/20 间只波动 ±0.7 s，说明没有逐视频累积开销或显存泄漏。批处理只摊薄固定加载，N→∞ 的下限约为 M≈171 s；N=20 已把加载压到 19.8 s/视频。20 条不同 prompt 的平均 denoise 比狐狸单例高约 8 s，来自 FBCache 内容相关的跳步差异。
 
-| 策略 | denoise 占比 | load 占比 | 新瓶颈 |
-|---|---|---|---|
-| baseline | 68.6% | 29.1% | denoise |
-| FBCache t=0.15 | 40.6% | 54.4% | **load** |
-| Turbo LoRA | 17.1% | 76.2% | **load** |
+### 13.3 用法
 
-**推导**：当 denoise 被大幅压缩后，加载成为主导瓶颈。后续加速应优先攻击加载路径（常驻模式、并行加载）。
+```bash
+DIFFUSERS_ATTN_BACKEND=sage PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+python3 scripts/run_h3.py --prompt-file scripts/batch_prompts_20.json --batch-limit 20 \
+    --steps 50 --cache-dit --cache-dit-threshold 0.25 --tag batch20-sage-fbc025
+```
 
-### 下一步方向
+## 14. 实践 5：torch.compile 正确性失败
 
-1. **常驻服务模式**：transformer 长驻 HBM，消除重复加载，理论 wall 可逼近纯 denoise 时间
-2. **加载并行化**：多线程分片加载 + 流水线 overlap
-3. **量化**：INT8 weight-only 将 62 GiB 压至 ~31 GiB，释放显存空间
-4. **多卡并行**：Ulysses sequence parallelism 分摊 37775 token 的注意力计算
+当前环境只验证了 Sage + FBCache 0.25 + compile 的批处理组合，没有完成“仅 compile”的独立消融，因此不能引用 compile 单项收益。
+
+N=5 可变 prompt 实测中，video-1 和 video-4 的 latent 出现 NaN，decode 报 `invalid value encountered in cast`，输出全黑（YAVG=16）；相同 prompt/seed 的无 compile 对照 5/5 正常。失败 run 为 `batch5_sage_fbcache025_compile-20260928-125513`，峰值 76.2 GiB。
+
+黑帧两条也恰好 denoise 最快，符合“NaN 使 FBCache 比较恒为 False、随后持续跳过 block”的现象，但 NaN 来源尚未隔离，可能涉及动态形状、FBCache hook 状态或 Sage 与 Inductor 的交互。在定位并加入 `torch.isfinite` fail-fast 前，compile 不进入推荐配置，失败行也不计为性能收益。
+
+## 15. 综合对比与展望
+
+### 15.1 统一阶段分解（T2VA 768p/124 帧/50 步）
+
+下表按“加载组件 → 推理阶段 → M/T → 加速比”展开，单位均为秒/视频。raw 列来自完整 cold 实测；其他单视频列的加载组件使用统一冷加载标定，batch20 按 20 条视频摊销。
+
+| 阶段 | 原始 raw cold | 仅 FBCache 0.25 | 仅 Sage | FBCache 0.25 + Sage | FBCache 0.25 + Sage，batch20 |
+|---|---:|---:|---:|---:|---:|
+| 加载 text_encoder | 183.5 | 183.3 | 183.3 | 183.3 | 9.2 |
+| 加载 VAE encoder | 29.4 | 29.4 | 29.4 | 29.4 | 1.5 |
+| 加载 transformer | 180.4 | 180.4 | 180.4 | 180.4 | 9.0 |
+| 加载 decode VAE | 3.6 | 3.5 | 3.5 | 3.5 | 0.2 |
+| **加载小计 L** | **396.9** | **396.7** | **396.7** | **396.7** | **19.8** |
+| 文本编码 | 0.8 | 0.8 | 0.8 | 0.8 | 0.1 |
+| denoise | 829.9 | 151.5 | 749.9 | 136.9 | 144.8 |
+| decode | 20.0 | 17.9 | 19.6 | 19.6 | 17.7 |
+| MP4 编码 | 3.4 | 3.4 | 3.4 | 3.4 | 3.3 |
+| 释放 / 未计时开销 | 18.0 | 11.4 | 16.3 | 12.1 | 5.3 |
+| **去掉加载后的每视频成本 M** | **872.1** | **185.0** | **790.0** | **172.8** | **171.3** |
+| **每视频总耗时 T** | **1269.0（实测）** | **581.7** | **1186.7** | **569.5** | **191.1** |
+| **相对原始** | **1.00×** | **2.18×** | **1.07×** | **2.23×** | **6.64×** |
+| run ID | `raw-20260929-103055` | `fbcache025-20260928-203358` | `sage-20260928-165335` | `sage_fbcache025-20260928-204352` | `batch20_sage_fbcache025-20260928-114735` |
+
+阈值扫描的 Sage+FBCache 0.15/0.20 结果保留在 §11.2，不重复扩宽主表。现有结果显示：Sage+FBC 0.25 将 denoise 压到 136.9 s 后，加载成为单视频主瓶颈；batch20 将加载摊到 19.8 s 后，瓶颈回到 GPU 计算。
+
+### 15.2 质量与正确性
+
+以下均相对同 prompt/seed 的 raw H.264/AAC 成片比较；视频不是 lossless 源，audio SNR 是两份 AAC 解码为 32 kHz 双声道浮点 PCM 后的逐样本波形 SNR。完整机器可读结果保存在 `logs/quality-fox-vs-raw.json`。
+
+| 配置 | 视频 PSNR / SSIM | audio SNR | 结论 |
+|---|---:|---:|---|
+| Sage | 29.11 / 0.933 | 6.61 dB | 轻微 INT8 数值漂移 |
+| SDPA+FBC 0.25 | 17.44 / 0.736 | 4.16 dB | 主要画质损失来自 FBCache |
+| Sage+FBC 0.15 | 20.05 / 0.784 | 7.11 dB | 扫描点中视频与音频指标均最好 |
+| Sage+FBC 0.20 | 17.97 / 0.759 | 2.80 dB | 相对 0.25 的视频增益有限，音频 SNR 更低 |
+| Sage+FBC 0.25 | 17.62 / 0.744 | 3.41 dB | 最快单视频配置 |
+| Sage+compile+FBC 0.25 | — | — | 2/5 黑帧，不可交付 |
+
+当前未设自动 PASS/FAIL 阈值，因为 PSNR/SSIM/audio SNR 的业务可接受线尚未定义；脚本支持传入阈值后作为真正门禁返回非零退出码。
+
+### 15.3 未覆盖与下一步
+
+当前环境没有验证 Turbo LoRA、TF32、仅 compile、SDPA 下完整 FBC 阈值扫描；不引用其他机器的历史收益。优先级为：① 扩充多 prompt 质量集；② 隔离 compile NaN；③ 评估权重量化或常驻服务降低 load；④ 多卡 Ulysses 分摊 37736-token 注意力。结论不外推到 FL2VA/Ref2VA。
 
 ---
 
@@ -530,61 +636,49 @@ PSNR 12.78 / SSIM 0.47 表示输出与 50 步 baseline 存在显著差异。这�
 
 | 术语 | 含义 |
 |---|---|
-| AdaLN | Adaptive Layer Normalization，自适应层归一化 |
-| BF16 | Brain Float 16，16 位浮点格式 |
-| Cache-DiT | Diffusion Transformer 残差缓存加速 |
-| CFG | Classifier-Free Guidance，无分类器引导 |
-| DAC | Descript Audio Codec |
+| BF16 | Brain Float 16 |
 | FBCache | First Block Cache，首 block 残差门控缓存 |
-| FL2VA | First-Last frame to Video+Audio，首尾帧到视频+音频生成 |
-| GQA | Grouped Query Attention，分组查询注意力 |
-| HBM | High Bandwidth Memory，高带宽显存 |
+| FL2VA | First-Last frame to Video+Audio |
+| GQA | Grouped Query Attention |
+| HBM | High Bandwidth Memory |
 | MM-RoPE | Multi-Modal Rotary Position Embedding |
-| PSNR | Peak Signal-to-Noise Ratio，峰值信噪比 |
-| Rectified Flow | 直线流匹配训练范式 |
-| Ref2VA | Reference to Video+Audio，多模态参考到视频+音频生成 |
+| PSNR / SSIM | 峰值信噪比 / 结构相似性 |
+| Ref2VA | Reference to Video+Audio |
 | SDPA | Scaled Dot-Product Attention |
-| SNR | Signal-to-Noise Ratio，信噪比 |
-| SSIM | Structural Similarity Index，结构相似性指数 |
-| SwiGLU | Swish-Gated Linear Unit |
-| T2VA | Text to Video+Audio，文本到视频+音频生成 |
+| T2VA | Text to Video+Audio |
 
 ### B. 实验环境详细指纹
 
 ```json
 {
-  "torch": "2.10.0+cu128",
+  "python": "3.12.13",
+  "torch": "2.13.0+cu130",
   "diffusers": "0.40.0",
-  "transformers": "5.14.1",
-  "triton": "3.6.0",
-  "flash_attn": null,
-  "xformers": null,
+  "triton": "3.7.1",
+  "flash_attn": "2.8.3",
+  "sageattention": "2.2.0",
   "driver": "550.163.01",
-  "cuda_runtime": "12.8",
-  "cudnn": 91002,
-  "gpu": "NVIDIA A100-SXM4-80GB, CC 8.0, 79.32 GiB, 108 SM",
-  "tf32_matmul": false,
-  "matmul_precision": "highest",
-  "sdp_flash": true,
-  "sdp_mem_efficient": true,
-  "sdp_math": true
+  "cuda_runtime": "13.0",
+  "cudnn": 92000,
+  "gpu": "NVIDIA A100-SXM4-80GB, CC 8.0",
+  "host_mem_total_gib": 122.8
 }
 ```
 
 ### C. 参考链接
 
-- MiniMax-H3 GitHub: `https://github.com/MiniMaxAI/MiniMax-H3`
-- SGLang Cookbook: `https://docs.sglang.io/cookbook/diffusion/MiniMax/MiniMax-H3`
-- Turbo LoRA: `https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora`
-- diffusers FBCache: `diffusers.hooks.first_block_cache` (v0.40.0)
-- 实验代码: `scripts/run_h3.py`, `scripts/bench_768p.sh`, `scripts/h3_monitor.py`, `scripts/h3_report.py`
+- MiniMax-H3: `https://github.com/MiniMaxAI/MiniMax-H3`
+- SGLang MiniMax-H3 cookbook: `https://docs.sglang.io/cookbook/diffusion/MiniMax/MiniMax-H3`
+- diffusers FBCache: `diffusers.hooks.first_block_cache`（v0.40.0）
+- 实验代码：`scripts/run_h3.py`、`scripts/h3_monitor.py`、`scripts/h3_report.py`、`scripts/stage_table.py`
 
 ### D. 已知限制
 
-1. **单卡约束**：所有实验在单卡 A100-80GB 上进行，未测试多卡场景。
-2. **FP8 未验证**：A100 上 FP8 推理未经官方验证（**官方声称**），我们也未尝试。
-3. **FBCache 非官方**：Cache-DiT 概念源于 SGLang cookbook，diffusers 端的实现需手动注册 block 和设置 context。
-4. **Turbo LoRA 非官方**：第三方社区权重，质量未经 MiniMax 认证。
-5. **PSNR 局限**：对蒸馏加速（如 Turbo LoRA）的评估，低 PSNR 不等于低质量——输出是不同但合理的生成结果。
-6. **噪声底**：<1% 差异在当前夹具下不可区分，微优化需多轮统计。
-7. **加载波动**：受 page cache 影响，冷启动 ~353 s vs 热启动 ~292 s。
+1. 全部性能实验为单卡 A100-80GB；A100 没有 FP8 attention 路径，多卡未测。
+2. 所有结论仅适用于 T2VA 768p/124 帧/50 步；FL2VA/Ref2VA 未纳入。
+3. FBCache 需要为 MiniMax-H3 手动注册 block 和 context；阈值影响画质且与内容相关。
+4. 视频 PSNR/SSIM 与 decoded-audio SNR 只覆盖一个狐狸 prompt，且参考与目标均为 H.264/AAC 成片；不能代替人工评价、原始 PCM/帧级 lossless 指标或业务样本集。
+5. `<1%` 的性能差异低于当前夹具的可区分范围。
+6. 非 cold run 的实测 load 受 page cache 残留影响；跨配置统一使用 `L_cold=396.7 s`，换存储需重新标定。
+7. 当前环境没有完成 Turbo LoRA、TF32、仅 compile 的独立消融。
+8. compile 组合已观察到 latent NaN 与黑帧，修复前不得用于生产。

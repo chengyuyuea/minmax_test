@@ -1,0 +1,33 @@
+scripts/run_h3.py --prompt-file scripts/batch_prompts_20.json --batch-limit 5 --steps 50 --cache-dit --cache-dit-threshold 0.25 --compile --tag batch5-sage-compile-fbc025 --run-id batch5_sage_fbcache025_compile-20260928-125513
+
+{
+  "prompt": null,
+  "image": null,
+  "last_image": null,
+  "height": 768,
+  "width": 1344,
+  "num_frames": 124,
+  "steps": 50,
+  "seed": 0,
+  "out": "/mnt/workspace/outputs/batch5_sage_fbcache025_compile-20260928-125513/video.mp4",
+  "outputs_dir": "/mnt/workspace/outputs",
+  "model_dir": "/mnt/workspace/MiniMax-H3",
+  "lora": null,
+  "lora_scale": 1.0,
+  "run_id": "batch5_sage_fbcache025_compile-20260928-125513",
+  "runs_dir": "/mnt/workspace/runs",
+  "monitor_hz": 2.0,
+  "tag": "batch5-sage-compile-fbc025",
+  "no_load_opt": false,
+  "parallel_load": false,
+  "profile": false,
+  "cache_dit": true,
+  "cache_dit_threshold": 0.25,
+  "repeat": 1,
+  "reuse_text_embeds": false,
+  "compile": true,
+  "compile_fullgraph": false,
+  "prompt_file": "scripts/batch_prompts_20.json",
+  "batch_limit": 5,
+  "tf32": false
+}

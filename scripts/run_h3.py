@@ -29,6 +29,7 @@ import torch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from h3_monitor import RunMonitor  # noqa: E402
+from run_naming import method_name  # noqa: E402
 
 MODEL_DIR = os.environ.get("H3_MODEL_DIR", "/mnt/workspace/MiniMax-H3")
 
@@ -49,6 +50,40 @@ def host_used_gib() -> float:
             k, _, v = line.partition(":")
             info[k] = int(v.split()[0])
     return (info["MemTotal"] - info["MemAvailable"]) / 1024 / 1024
+
+
+def page_cache_gib() -> float:
+    info = {}
+    with open("/proc/meminfo") as fh:
+        for line in fh:
+            k, _, v = line.partition(":")
+            info[k] = int(v.split()[0])
+    return (info.get("Cached", 0) + info.get("Buffers", 0)) / 1024 / 1024
+
+
+def drop_model_page_cache(model_dir: str) -> dict:
+    """Evict the checkpoint's file pages so every run starts from the same cold state.
+
+    Load time is set by how much of the ~196 GiB snapshot the page cache still holds
+    from whatever ran before, not by the lever under test: the same transformer read
+    took 10 s warm and 160+ s cold. POSIX_FADV_DONTNEED on the model files needs no
+    root (unlike drop_caches) and leaves the rest of the page cache alone.
+    """
+    before = page_cache_gib()
+    t0 = time.time()
+    n = 0
+    for root, _, files in os.walk(model_dir):
+        for name in files:
+            fd = os.open(os.path.join(root, name), os.O_RDONLY)
+            try:
+                os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
+            finally:
+                os.close(fd)
+            n += 1
+    after = page_cache_gib()
+    print(f"[cache] evicted {n} model files: page cache {before:.1f} -> {after:.1f} GiB "
+          f"in {time.time() - t0:.1f}s", flush=True)
+    return {"files": n, "cached_before_gib": round(before, 2), "cached_after_gib": round(after, 2)}
 
 
 def report(tag: str) -> None:
@@ -461,6 +496,11 @@ def main() -> None:
                          "Optional keys: 'seed' (int). "
                          "When set, --prompt/--image/--last-image are ignored. "
                          "Execution uses stage-major ordering: each component loads once for all prompts.")
+    ap.add_argument("--batch-limit", type=int, default=None,
+                    help="use only the first N entries from --prompt-file; useful for N-scaling benchmarks")
+    ap.add_argument("--drop-page-cache", action="store_true",
+                    help="evict the model files from the page cache before starting, so load:* "
+                         "phases measure a reproducible cold read instead of leftover cache state")
     ap.add_argument("--tf32", action="store_true",
                     help="enable TF32 for float32 matmuls (torch.backends.cuda.matmul.allow_tf32=True). "
                          "A100 TF32 tensor cores provide 312 TFLOPS vs FP32 19.5 TFLOPS. "
@@ -484,6 +524,14 @@ def main() -> None:
             prompt_list = _json.load(f)
         assert isinstance(prompt_list, list) and len(prompt_list) > 0, \
             "prompt-file must be a non-empty JSON list"
+        if args.batch_limit is not None:
+            if args.batch_limit < 1:
+                raise SystemExit("--batch-limit must be >= 1")
+            if args.batch_limit > len(prompt_list):
+                raise SystemExit(
+                    f"--batch-limit {args.batch_limit} exceeds prompt-file size {len(prompt_list)}"
+                )
+            prompt_list = prompt_list[:args.batch_limit]
         for i, p in enumerate(prompt_list):
             assert "prompt" in p, f"prompt_list[{i}] missing 'prompt' key"
         print(f"[batch] loaded {len(prompt_list)} prompts from {args.prompt_file}", flush=True)
@@ -514,11 +562,14 @@ def main() -> None:
               f"cudnn.allow_tf32={torch.backends.cudnn.allow_tf32}, "
               f"precision={torch.get_float32_matmul_precision()}", flush=True)
 
-    run_id = args.run_id or time.strftime("%Y%m%d-%H%M%S")
+    run_id = args.run_id or (
+        method_name(vars(args), os.environ.get("DIFFUSERS_ATTN_BACKEND"),
+                    len(prompt_list) if prompt_list is not None else None)
+        + time.strftime("-%Y%m%d-%H%M%S")
+    )
     run_dir = os.path.join(args.runs_dir, run_id)
-    # runs/<id> and outputs/<id> share the one timestamp, so telemetry and video
-    # pair up without either name having to encode what the run was testing --
-    # that is what the tag in run.json is for.
+    # runs/<id> and outputs/<id> share one name, <method>-<date>-<time>, so the
+    # directory listing alone says which levers each run pulled (see run_naming.py).
     if args.out is None:
         args.out = os.path.join(args.outputs_dir, run_id, "video.mp4")
     os.makedirs(run_dir, exist_ok=True)
@@ -532,6 +583,10 @@ def main() -> None:
     with open(os.path.join(run_dir, "cmd.txt"), "w") as fh:
         fh.write(" ".join(shlex.quote(a) for a in sys.argv) + "\n\n")
         fh.write(json.dumps(vars(args), indent=2, ensure_ascii=False, default=str) + "\n")
+
+    page_cache = {"dropped": False, "cached_at_start_gib": round(page_cache_gib(), 2)}
+    if args.drop_page_cache:
+        page_cache = {"dropped": True} | drop_model_page_cache(args.model_dir)
 
     mon = RunMonitor(run_dir, run_id, hz=args.monitor_hz).start()
     print(f"[mon ] telemetry -> {run_dir}", flush=True)
@@ -554,6 +609,7 @@ def main() -> None:
             "outputs": outputs,
             "fps": getattr(pipe, "fps", None),
             "batch_size": len(prompt_list),
+            "page_cache": page_cache,
         })
         print("[mon ] " + json.dumps(summary["phase_seconds"], ensure_ascii=False), flush=True)
         print(f"[mon ] step median {summary['step_ms_median']} ms over "
@@ -736,6 +792,7 @@ def main() -> None:
         "output": outputs[0],
         "outputs": outputs,
         "fps": getattr(pipe, "fps", None),
+        "page_cache": page_cache,
     })
     print("[mon ] " + json.dumps(summary["phase_seconds"], ensure_ascii=False), flush=True)
     print(f"[mon ] step median {summary['step_ms_median']} ms over "

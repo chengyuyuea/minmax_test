@@ -1,0 +1,69 @@
+[cache] evicted 102 model files: page cache 112.9 -> 2.5 GiB in 7.1s
+[mon ] telemetry -> /mnt/workspace/runs/nodevmap_steps2-20260928-152320
+[init] loading pipeline config from /mnt/workspace/MiniMax-H3
+[mem] after config load            host_used=   3.7 GiB  hbm=   0.0 GiB  hbm_peak=   0.0 GiB
+[mem] loaded for before_encode     host_used=   3.7 GiB  hbm=   0.0 GiB  hbm_peak=   0.0 GiB
+[run ] before_encode took 0.0s
+[mem] ran before_encode            host_used=   3.7 GiB  hbm=   0.0 GiB  hbm_peak=   0.0 GiB
+
+Loading weights:   0%|          | 0/1058 [00:00<?, ?it/s]
+Loading weights:  14%|█▍        | 151/1058 [00:00<00:00, 1495.47it/s]
+Loading weights:  28%|██▊       | 301/1058 [00:00<00:00, 1401.16it/s]
+Loading weights:  42%|████▏     | 442/1058 [00:00<00:00, 1398.63it/s]
+Loading weights:  55%|█████▌    | 583/1058 [00:00<00:00, 1356.06it/s]
+Loading weights:  68%|██████▊   | 719/1058 [00:00<00:00, 1341.31it/s]
+Loading weights:  85%|████████▌ | 904/1058 [00:00<00:00, 1505.22it/s]
+Loading weights: 100%|██████████| 1058/1058 [00:00<00:00, 1508.93it/s]
+[load] text_encoder: 33.36B params -> bfloat16 33.36B/62.1GiB
+[load] ['text_encoder', 'tokenizer', 'processor'] in 182.5s
+[mem] loaded for text_encoder      host_used=   4.1 GiB  hbm=  62.1 GiB  hbm_peak=  62.1 GiB
+[run ] text_encoder took 0.8s
+[mem] ran text_encoder             host_used=   4.5 GiB  hbm=  62.1 GiB  hbm_peak=  62.2 GiB
+[free] ['text_encoder']
+
+Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]
+Loading checkpoint shards:  33%|███▎      | 1/3 [00:00<00:00,  5.49it/s]
+Loading checkpoint shards:  67%|██████▋   | 2/3 [00:00<00:00,  5.95it/s]
+Loading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00,  8.42it/s]
+/usr/local/lib/python3.12/site-packages/torch/nn/utils/weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+[load] vae: 2.60B params -> float32 2.60B/9.7GiB
+[load] audio_vae: 0.15B params -> float32 0.15B/0.6GiB
+[load] ['vae', 'audio_vae'] in 29.6s
+[mem] loaded for vae_encoder       host_used=   4.4 GiB  hbm=  10.3 GiB  hbm_peak=  62.2 GiB
+[run ] vae_encoder took 0.0s
+[mem] ran vae_encoder              host_used=   4.4 GiB  hbm=  10.3 GiB  hbm_peak=  62.2 GiB
+[free] ['vae', 'audio_vae']
+
+Loading checkpoint shards:   0%|          | 0/14 [00:00<?, ?it/s]
+Loading checkpoint shards:  21%|██▏       | 3/14 [00:00<00:00, 26.87it/s]
+Loading checkpoint shards:  43%|████▎     | 6/14 [00:00<00:00, 23.85it/s]
+Loading checkpoint shards:  64%|██████▍   | 9/14 [00:00<00:00, 19.12it/s]
+Loading checkpoint shards:  86%|████████▌ | 12/14 [00:00<00:00, 19.63it/s]
+Loading checkpoint shards: 100%|██████████| 14/14 [00:00<00:00, 20.99it/s]
+[load] transformer: 33.12B params -> bfloat16 33.11B/61.7GiB, float32 0.02B/0.1GiB
+[load] ['transformer', 'scheduler', 'audio_scheduler'] in 180.5s
+[mem] loaded for denoise           host_used=   4.5 GiB  hbm=  61.7 GiB  hbm_peak=  62.2 GiB
+
+  0%|          | 0/1 [00:00<?, ?it/s]
+100%|██████████| 1/1 [00:17<00:00, 17.19s/it]
+100%|██████████| 1/1 [00:17<00:00, 17.19s/it]
+[run ] denoise took 17.2s
+[mem] ran denoise                  host_used=   4.6 GiB  hbm=  61.8 GiB  hbm_peak=  68.1 GiB
+[free] ['transformer', 'scheduler', 'audio_scheduler']
+
+Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]
+Loading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00, 68.16it/s]
+[load] vae: 2.60B params -> float32 2.60B/9.7GiB
+[load] audio_vae: 0.15B params -> float32 0.15B/0.6GiB
+[load] ['vae', 'audio_vae'] in 3.6s
+[mem] loaded for decode            host_used=   4.5 GiB  hbm=  10.3 GiB  hbm_peak=  68.1 GiB
+[run ] decode took 19.6s
+[mem] ran decode                   host_used=   5.3 GiB  hbm=  10.5 GiB  hbm_peak=  68.1 GiB
+[free] ['vae', 'audio_vae']
+[done] iteration 0 wall time 435.3s
+[out ] /mnt/workspace/outputs/nodevmap_steps2-20260928-152320/video.mp4 frames=124 audio=(165600, 2) sr=32000
+[mem] final it=0                   host_used=   5.4 GiB  hbm=   0.0 GiB  hbm_peak=  68.1 GiB
+[mon ] {"init": 0.3, "load:before_encode": 0.0, "run:before_encode": 0.0, "free:before_encode": 0.3, "load:text_encoder": 182.5, "run:text_encoder": 0.8, "free:text_encoder": 0.4, "load:vae_encoder": 29.6, "run:vae_encoder": 0.0, "free:vae_encoder": 0.2, "load:denoise": 180.5, "run:denoise": 17.2, "free:denoise": 0.4, "load:decode": 3.6, "run:decode": 19.6, "free:decode": 0.3, "encode_mp4": 3.8}
+[mon ] step median 17186.9 ms over 1 transformer calls
+[mon ] peaks: torch_alloc=68.08 GiB  nvml=70.58 GiB  host=8.6 GiB

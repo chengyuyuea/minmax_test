@@ -1,0 +1,37 @@
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                         aten::_flash_attention_forward         0.01%       1.260ms         0.15%      25.747ms     495.131us       10.050s        58.79%       15.886s     305.502ms            52  
+void pytorch_flash::flash_fwd_kernel<Flash_fwd_kerne...         0.00%       0.000us         0.00%       0.000us       0.000us       10.050s        58.79%       10.050s     193.268ms            52  
+                                    Command Buffer Full        60.48%       10.383s        60.48%       10.383s       7.783ms        9.926s        58.07%        9.926s       7.440ms          1334  
+                                               aten::mm         0.08%      13.749ms         2.33%     399.658ms       1.281ms        5.396s        31.57%        8.538s      27.365ms           312  
+ampere_bf16_s16816gemm_bf16_128x256_ldg8_f2f_stages_...         0.00%       0.000us         0.00%       0.000us       0.000us        3.798s        22.22%        3.798s      18.989ms           200  
+ampere_bf16_s16816gemm_bf16_256x128_ldg8_f2f_stages_...         0.00%       0.000us         0.00%       0.000us       0.000us        1.597s         9.34%        1.597s      15.970ms           100  
+                                              aten::mul         0.06%       9.564ms         6.03%        1.036s       2.214ms     466.646ms         2.73%     660.277ms       1.411ms           468  
+                                              aten::cat         0.02%       2.589ms         0.49%      83.482ms     399.435us     345.483ms         2.02%     546.762ms       2.616ms           209  
+void at::native::(anonymous namespace)::CatArrayBatc...         0.00%       0.000us         0.00%       0.000us       0.000us     345.448ms         2.02%     345.448ms       1.727ms           200  
+void at::native::elementwise_kernel<128, 4, at::nati...         0.00%       0.000us         0.00%       0.000us       0.000us     330.073ms         1.93%     330.073ms       1.093ms           302  
+                                  aten::_fused_rms_norm         0.04%       7.574ms         9.55%        1.639s       7.805ms     302.588ms         1.77%     478.947ms       2.281ms           210  
+void at::native::(anonymous namespace)::vectorized_l...         0.00%       0.000us         0.00%       0.000us       0.000us     302.588ms         1.77%     302.588ms       1.441ms           210  
+                                              aten::add         0.04%       7.055ms         1.15%     197.768ms     475.405us     250.637ms         1.47%     382.691ms     919.930us           416  
+void at::native::vectorized_elementwise_kernel<4, at...         0.00%       0.000us         0.00%       0.000us       0.000us     203.633ms         1.19%     203.633ms     667.650us           305  
+void at::native::vectorized_elementwise_kernel<4, at...         0.00%       0.000us         0.00%       0.000us       0.000us     136.478ms         0.80%     136.478ms     678.994us           201  
+                                             aten::silu         0.01%       1.748ms         0.53%      91.153ms     876.467us     135.505ms         0.79%     293.203ms       2.819ms           104  
+void at::native::elementwise_kernel<128, 4, at::nati...         0.00%       0.000us         0.00%       0.000us       0.000us     135.314ms         0.79%     135.314ms       1.327ms           102  
+                                           aten::gather         0.03%       4.562ms         2.50%     428.708ms       1.410ms      69.874ms         0.41%     103.974ms     342.019us           304  
+void at::native::vectorized_gather_kernel<16, long>(...         0.00%       0.000us         0.00%       0.000us       0.000us      69.874ms         0.41%      69.874ms     229.849us           304  
+void at::native::vectorized_elementwise_kernel<4, at...         0.00%       0.000us         0.00%       0.000us       0.000us      46.956ms         0.27%      46.956ms     464.911us           101  
+                                              aten::neg         0.01%       1.500ms         0.24%      41.755ms     417.550us      46.705ms         0.27%      73.406ms     734.062us           100  
+void at::native::elementwise_kernel<128, 4, at::nati...         0.00%       0.000us         0.00%       0.000us       0.000us      46.705ms         0.27%      46.705ms     467.054us           100  
+                                            aten::addmm         0.29%      49.001ms        35.85%        6.154s     106.107ms      22.307ms         0.13%      55.283ms     953.157us            58  
+ampere_bf16_s16816gemm_bf16_64x64_sliced1x2_ldg8_rel...         0.00%       0.000us         0.00%       0.000us       0.000us      15.828ms         0.09%      15.828ms     316.561us            50  
+                                  Lazy Function Loading         0.01%     877.541us         0.04%       6.634ms     228.771us       7.244ms         0.04%      18.265ms     629.831us            29  
+                                            aten::copy_         0.02%       2.741ms         0.78%     133.897ms     452.355us       6.382ms         0.04%       8.472ms      28.621us           296  
+void at::native::vectorized_elementwise_kernel<4, at...         0.00%       0.000us         0.00%       0.000us       0.000us       3.732ms         0.02%       3.732ms      14.751us           253  
+                       Runtime Triggered Module Loading         0.14%      24.065ms         0.14%      24.065ms       4.813ms       2.696ms         0.02%       2.696ms     539.216us             5  
+                                 ampere_sgemm_32x128_tn         0.00%       0.000us         0.00%       0.000us       0.000us       2.654ms         0.02%       2.654ms       2.654ms             1  
+                                 ampere_sgemm_128x64_tn         0.00%       0.000us         0.00%       0.000us       0.000us       2.616ms         0.02%       2.616ms       2.616ms             1  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 17.168s
+Self CUDA time total: 17.094s
+

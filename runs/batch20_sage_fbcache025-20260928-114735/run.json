@@ -1,0 +1,1030 @@
+{
+  "run_id": "batch20_sage_fbcache025-20260928-114735",
+  "argv": [
+    "scripts/run_h3.py",
+    "--prompt-file",
+    "scripts/batch_prompts_20.json",
+    "--batch-limit",
+    "20",
+    "--steps",
+    "50",
+    "--cache-dit",
+    "--cache-dit-threshold",
+    "0.25",
+    "--tag",
+    "batch20-sage-fbc025",
+    "--run-id",
+    "batch20_sage_fbcache025-20260928-114735"
+  ],
+  "env": {
+    "hostname": "dsw-1060989-6cb85bf96c-j97fp",
+    "python": "3.12.13",
+    "torch": "2.13.0+cu130",
+    "torch_cuda": "13.0",
+    "cudnn": 92000,
+    "attn_backend": "sage",
+    "diffusers": "0.40.0",
+    "gpu": "NVIDIA A100-SXM4-80GB",
+    "gpu_capability": "8.0",
+    "driver": "550.163.01",
+    "flash_attn": "2.8.3",
+    "sageattention": "2.2.0",
+    "triton": "3.7.1",
+    "host_mem_total_gib": 122.8,
+    "host_mem_available_gib": 117.0,
+    "host_cached_gib": 111.5
+  },
+  "started_at": "2026-09-28T11:47:35",
+  "hz": 2.0,
+  "wall_seconds": 3721.3,
+  "load_seconds_total": 295.5,
+  "run_seconds_total": 3320.2,
+  "overhead_seconds": 105.6,
+  "phase_seconds": {
+    "init": 0.2,
+    "load:before_encode": 0.0,
+    "run:before_encode:0": 0.0,
+    "run:before_encode:1": 0.0,
+    "run:before_encode:2": 0.0,
+    "run:before_encode:3": 0.0,
+    "run:before_encode:4": 0.0,
+    "run:before_encode:5": 0.0,
+    "run:before_encode:6": 0.0,
+    "run:before_encode:7": 0.0,
+    "run:before_encode:8": 0.0,
+    "run:before_encode:9": 0.0,
+    "run:before_encode:10": 0.0,
+    "run:before_encode:11": 0.0,
+    "run:before_encode:12": 0.0,
+    "run:before_encode:13": 0.0,
+    "run:before_encode:14": 0.0,
+    "run:before_encode:15": 0.0,
+    "run:before_encode:16": 0.0,
+    "run:before_encode:17": 0.0,
+    "run:before_encode:18": 0.0,
+    "run:before_encode:19": 0.0,
+    "free:before_encode": 0.3,
+    "load:text_encoder": 134.1,
+    "run:text_encoder:0": 0.9,
+    "run:text_encoder:1": 0.1,
+    "run:text_encoder:2": 0.1,
+    "run:text_encoder:3": 0.1,
+    "run:text_encoder:4": 0.1,
+    "run:text_encoder:5": 0.1,
+    "run:text_encoder:6": 0.1,
+    "run:text_encoder:7": 0.1,
+    "run:text_encoder:8": 0.1,
+    "run:text_encoder:9": 0.1,
+    "run:text_encoder:10": 0.1,
+    "run:text_encoder:11": 0.1,
+    "run:text_encoder:12": 0.1,
+    "run:text_encoder:13": 0.1,
+    "run:text_encoder:14": 0.1,
+    "run:text_encoder:15": 0.1,
+    "run:text_encoder:16": 0.1,
+    "run:text_encoder:17": 0.1,
+    "run:text_encoder:18": 0.1,
+    "run:text_encoder:19": 0.1,
+    "free:text_encoder": 0.3,
+    "load:vae_encoder": 3.5,
+    "run:vae_encoder:0": 0.0,
+    "run:vae_encoder:1": 0.0,
+    "run:vae_encoder:2": 0.0,
+    "run:vae_encoder:3": 0.0,
+    "run:vae_encoder:4": 0.0,
+    "run:vae_encoder:5": 0.0,
+    "run:vae_encoder:6": 0.0,
+    "run:vae_encoder:7": 0.0,
+    "run:vae_encoder:8": 0.0,
+    "run:vae_encoder:9": 0.0,
+    "run:vae_encoder:10": 0.0,
+    "run:vae_encoder:11": 0.0,
+    "run:vae_encoder:12": 0.0,
+    "run:vae_encoder:13": 0.0,
+    "run:vae_encoder:14": 0.0,
+    "run:vae_encoder:15": 0.0,
+    "run:vae_encoder:16": 0.0,
+    "run:vae_encoder:17": 0.0,
+    "run:vae_encoder:18": 0.0,
+    "run:vae_encoder:19": 0.0,
+    "free:vae_encoder": 0.2,
+    "load:denoise": 155.3,
+    "run:denoise:0": 137.0,
+    "run:denoise:1": 146.2,
+    "run:denoise:2": 146.2,
+    "run:denoise:3": 146.2,
+    "run:denoise:4": 146.2,
+    "run:denoise:5": 146.3,
+    "run:denoise:6": 146.3,
+    "run:denoise:7": 136.7,
+    "run:denoise:8": 146.3,
+    "run:denoise:9": 146.3,
+    "run:denoise:10": 146.2,
+    "run:denoise:11": 146.3,
+    "run:denoise:12": 146.3,
+    "run:denoise:13": 146.2,
+    "run:denoise:14": 146.3,
+    "run:denoise:15": 146.3,
+    "run:denoise:16": 146.3,
+    "run:denoise:17": 146.2,
+    "run:denoise:18": 146.3,
+    "run:denoise:19": 136.7,
+    "free:denoise": 0.3,
+    "load:decode": 2.6,
+    "run:decode:0": 19.6,
+    "encode_mp4:0": 4.2,
+    "run:decode:1": 17.8,
+    "encode_mp4:1": 2.9,
+    "run:decode:2": 17.6,
+    "encode_mp4:2": 2.5,
+    "run:decode:3": 17.6,
+    "encode_mp4:3": 3.5,
+    "run:decode:4": 17.7,
+    "encode_mp4:4": 2.5,
+    "run:decode:5": 17.6,
+    "encode_mp4:5": 3.6,
+    "run:decode:6": 17.6,
+    "encode_mp4:6": 2.8,
+    "run:decode:7": 17.6,
+    "encode_mp4:7": 2.9,
+    "run:decode:8": 17.7,
+    "encode_mp4:8": 2.8,
+    "run:decode:9": 17.6,
+    "encode_mp4:9": 3.8,
+    "run:decode:10": 17.6,
+    "encode_mp4:10": 3.1,
+    "run:decode:11": 17.6,
+    "encode_mp4:11": 3.5,
+    "run:decode:12": 17.6,
+    "encode_mp4:12": 3.4,
+    "run:decode:13": 17.6,
+    "encode_mp4:13": 3.8,
+    "run:decode:14": 17.7,
+    "encode_mp4:14": 3.4,
+    "run:decode:15": 17.6,
+    "encode_mp4:15": 3.8,
+    "run:decode:16": 17.6,
+    "encode_mp4:16": 3.4,
+    "run:decode:17": 17.6,
+    "encode_mp4:17": 3.4,
+    "run:decode:18": 17.6,
+    "encode_mp4:18": 3.3,
+    "run:decode:19": 17.6,
+    "encode_mp4:19": 3.5,
+    "free:decode": 0.3
+  },
+  "phase_io": {
+    "init": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "load:before_encode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:5": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:6": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:7": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:8": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:9": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:10": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:11": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:12": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:13": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:14": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:15": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:16": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:17": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:18": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "run:before_encode:19": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "free:before_encode": {
+      "read_gib": 0.0,
+      "major_faults": 3,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 111.8
+    },
+    "load:text_encoder": {
+      "read_gib": 45.18,
+      "major_faults": 216679,
+      "cached_before_gib": 111.8,
+      "cached_after_gib": 118.5
+    },
+    "run:text_encoder:0": {
+      "read_gib": 0.01,
+      "major_faults": 55,
+      "cached_before_gib": 118.5,
+      "cached_after_gib": 118.1
+    },
+    "run:text_encoder:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:5": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:6": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:7": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:8": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:9": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:10": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:11": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:12": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:13": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:14": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:15": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:16": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:17": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:18": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:19": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "free:text_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "load:vae_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 1,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:5": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:6": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:7": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:8": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:9": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:10": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:11": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:12": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:13": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:14": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:15": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:16": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:17": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:18": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:19": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "free:vae_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "load:denoise": {
+      "read_gib": 53.32,
+      "major_faults": 257925,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:denoise:0": {
+      "read_gib": 0.01,
+      "major_faults": 156,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:denoise:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 117.8
+    },
+    "run:denoise:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.8,
+      "cached_after_gib": 117.8
+    },
+    "run:denoise:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.8,
+      "cached_after_gib": 117.8
+    },
+    "run:denoise:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.8,
+      "cached_after_gib": 117.8
+    },
+    "run:denoise:5": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.8,
+      "cached_after_gib": 117.8
+    },
+    "run:denoise:6": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.8,
+      "cached_after_gib": 117.7
+    },
+    "run:denoise:7": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.7,
+      "cached_after_gib": 117.7
+    },
+    "run:denoise:8": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.7,
+      "cached_after_gib": 117.7
+    },
+    "run:denoise:9": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.7,
+      "cached_after_gib": 117.7
+    },
+    "run:denoise:10": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.7,
+      "cached_after_gib": 117.7
+    },
+    "run:denoise:11": {
+      "read_gib": 0.0,
+      "major_faults": 1,
+      "cached_before_gib": 117.7,
+      "cached_after_gib": 117.7
+    },
+    "run:denoise:12": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.7,
+      "cached_after_gib": 117.6
+    },
+    "run:denoise:13": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.6,
+      "cached_after_gib": 117.6
+    },
+    "run:denoise:14": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.6,
+      "cached_after_gib": 117.6
+    },
+    "run:denoise:15": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.6,
+      "cached_after_gib": 117.4
+    },
+    "run:denoise:16": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.4,
+      "cached_after_gib": 117.4
+    },
+    "run:denoise:17": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.4,
+      "cached_after_gib": 117.4
+    },
+    "run:denoise:18": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.4,
+      "cached_after_gib": 117.4
+    },
+    "run:denoise:19": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.4,
+      "cached_after_gib": 117.4
+    },
+    "free:denoise": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.4,
+      "cached_after_gib": 117.4
+    },
+    "load:decode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.4,
+      "cached_after_gib": 117.4
+    },
+    "run:decode:0": {
+      "read_gib": 0.02,
+      "major_faults": 176,
+      "cached_before_gib": 117.4,
+      "cached_after_gib": 112.4
+    },
+    "encode_mp4:0": {
+      "read_gib": 0.06,
+      "major_faults": 7,
+      "cached_before_gib": 112.4,
+      "cached_after_gib": 112.5
+    },
+    "run:decode:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 112.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:5": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:5": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:6": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:6": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:7": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:7": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:8": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:8": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:9": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:9": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:10": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:10": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:11": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:11": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:12": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:12": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:13": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:13": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:14": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:14": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:15": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:15": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:16": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:16": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:17": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:17": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:18": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:18": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "run:decode:19": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "encode_mp4:19": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    },
+    "free:decode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.5,
+      "cached_after_gib": 111.5
+    }
+  },
+  "step_ms_median": 324.4,
+  "step_ms_mean": 3049.5,
+  "steps_counted": 980,
+  "peak_torch_alloc_gib": 69.86,
+  "peak_nvml_used_gib": 73.73,
+  "peak_host_used_gib": 10.1,
+  "tag": "batch20-sage-fbc025",
+  "args": {
+    "prompt": null,
+    "image": null,
+    "last_image": null,
+    "height": 768,
+    "width": 1344,
+    "num_frames": 124,
+    "steps": 50,
+    "seed": 0,
+    "out": "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video.mp4",
+    "outputs_dir": "/mnt/workspace/outputs",
+    "model_dir": "/mnt/workspace/MiniMax-H3",
+    "lora": null,
+    "lora_scale": 1.0,
+    "run_id": "batch20_sage_fbcache025-20260928-114735",
+    "runs_dir": "/mnt/workspace/runs",
+    "monitor_hz": 2.0,
+    "tag": "batch20-sage-fbc025",
+    "no_load_opt": false,
+    "parallel_load": false,
+    "profile": false,
+    "cache_dit": true,
+    "cache_dit_threshold": 0.25,
+    "repeat": 1,
+    "reuse_text_embeds": false,
+    "compile": false,
+    "compile_fullgraph": false,
+    "prompt_file": "scripts/batch_prompts_20.json",
+    "batch_limit": 20,
+    "tf32": false,
+    "generator": null
+  },
+  "output": "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-0.mp4",
+  "outputs": [
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-0.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-1.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-2.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-3.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-4.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-5.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-6.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-7.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-8.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-9.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-10.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-11.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-12.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-13.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-14.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-15.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-16.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-17.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-18.mp4",
+    "/mnt/workspace/outputs/batch20_sage_fbcache025-20260928-114735/video-19.mp4"
+  ],
+  "fps": 24,
+  "batch_size": 20,
+  "finished_at": "2026-09-28T12:49:36",
+  "renamed_from": "batch20-20260928-b1"
+}

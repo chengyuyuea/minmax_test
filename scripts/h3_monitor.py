@@ -28,11 +28,13 @@ import contextlib
 import csv
 import json
 import os
+import resource
 import socket
 import sys
 import threading
 import time
 import weakref
+from importlib import metadata
 
 import torch
 
@@ -43,14 +45,44 @@ except Exception:  # nvml missing -> nvml_used stays None, run still works
     _NVML_OK = False
 
 
-def _host_used_gib() -> float:
-    """Host RAM in use, read straight from /proc so it matches run_h3.report()."""
+def _meminfo() -> dict[str, int]:
+    """Return /proc/meminfo values in KiB."""
     info = {}
     with open("/proc/meminfo") as fh:
         for line in fh:
             k, _, v = line.partition(":")
             info[k] = int(v.split()[0])
+    return info
+
+
+def _host_used_gib() -> float:
+    """Host RAM in use, read straight from /proc so it matches run_h3.report()."""
+    info = _meminfo()
     return (info["MemTotal"] - info["MemAvailable"]) / 1024 / 1024
+
+
+def _phase_io_snapshot() -> dict[str, float | int]:
+    """Capture process disk reads, major faults, and host page-cache state.
+
+    safetensors loads through mmap, so rchar is not useful. Linux read_bytes and
+    major faults expose storage-backed page-ins; Cached records the competing host
+    page cache that determines whether a 62 GiB component reload is hot or cold.
+    """
+    read_bytes = 0
+    try:
+        with open("/proc/self/io") as fh:
+            for line in fh:
+                if line.startswith("read_bytes:"):
+                    read_bytes = int(line.split(":", 1)[1])
+                    break
+    except OSError:
+        pass
+    info = _meminfo()
+    return {
+        "read_bytes": read_bytes,
+        "major_faults": resource.getrusage(resource.RUSAGE_SELF).ru_majflt,
+        "cached_gib": (info.get("Cached", 0) + info.get("Buffers", 0)) / 1024 / 1024,
+    }
 
 
 def env_fingerprint() -> dict:
@@ -90,9 +122,19 @@ def env_fingerprint() -> dict:
     for pkg in ("flash_attn", "sageattention", "triton"):
         try:
             mod = __import__(pkg)
-            env[pkg] = getattr(mod, "__version__", "?")
+            version = getattr(mod, "__version__", None)
+            env[pkg] = version or metadata.version(pkg)
         except Exception:
             pass
+    try:
+        info = _meminfo()
+        env["host_mem_total_gib"] = round(info["MemTotal"] / 1024 / 1024, 1)
+        env["host_mem_available_gib"] = round(info["MemAvailable"] / 1024 / 1024, 1)
+        env["host_cached_gib"] = round(
+            (info.get("Cached", 0) + info.get("Buffers", 0)) / 1024 / 1024, 1
+        )
+    except Exception:
+        pass
     return env
 
 
@@ -154,6 +196,9 @@ class RunMonitor:
         # phase name -> accumulated seconds (duplicate names sum, e.g. if a stage
         # is ever re-entered); order preserved for a readable run.json.
         self._phase_seconds: dict[str, float] = {}
+        # phase name -> mmap/storage evidence. This keeps load comparisons honest:
+        # equal model code can differ by minutes solely because page-cache residency differs.
+        self._phase_io: dict[str, dict[str, float | int]] = {}
         # sampler rows: (t_rel, phase, hbm_alloc, hbm_peak, host_used, nvml_used)
         self._samples: list[tuple] = []
         # (start_event, end_event) pairs per transformer forward, read at stop()
@@ -249,13 +294,28 @@ class RunMonitor:
         with self._lock:
             prev = self._cur_phase
             self._cur_phase = name
+        before = _phase_io_snapshot()
         t0 = time.time()
         try:
             yield
         finally:
             dt = time.time() - t0
+            after = _phase_io_snapshot()
+            read_gib = max(0, int(after["read_bytes"]) - int(before["read_bytes"])) / 2**30
+            major_faults = max(
+                0, int(after["major_faults"]) - int(before["major_faults"])
+            )
             with self._lock:
                 self._phase_seconds[name] = self._phase_seconds.get(name, 0.0) + dt
+                stats = self._phase_io.setdefault(name, {
+                    "read_gib": 0.0,
+                    "major_faults": 0,
+                    "cached_before_gib": float(before["cached_gib"]),
+                    "cached_after_gib": float(after["cached_gib"]),
+                })
+                stats["read_gib"] = float(stats["read_gib"]) + read_gib
+                stats["major_faults"] = int(stats["major_faults"]) + major_faults
+                stats["cached_after_gib"] = float(after["cached_gib"])
                 self._cur_phase = prev
 
     # ---- per-step transformer timing ---------------------------------------
@@ -322,11 +382,33 @@ class RunMonitor:
             if torch.cuda.is_available() else None
         )
 
+        phase_seconds = {k: round(v, 1) for k, v in self._phase_seconds.items()}
+        wall_seconds = round(time.time() - self._t0, 1)
+        load_seconds = round(sum(
+            value for name, value in phase_seconds.items() if name.startswith("load:")
+        ), 1)
+        run_seconds = round(sum(
+            value for name, value in phase_seconds.items()
+            if name.startswith("run:") or name.startswith("encode_mp4")
+        ), 1)
+
         summary = {
             "run_id": self.run_id,
             "hz": self.hz,
-            "wall_seconds": round(time.time() - self._t0, 1),
-            "phase_seconds": {k: round(v, 1) for k, v in self._phase_seconds.items()},
+            "wall_seconds": wall_seconds,
+            "load_seconds_total": load_seconds,
+            "run_seconds_total": run_seconds,
+            "overhead_seconds": round(wall_seconds - load_seconds - run_seconds, 1),
+            "phase_seconds": phase_seconds,
+            "phase_io": {
+                name: {
+                    "read_gib": round(float(stats["read_gib"]), 2),
+                    "major_faults": int(stats["major_faults"]),
+                    "cached_before_gib": round(float(stats["cached_before_gib"]), 1),
+                    "cached_after_gib": round(float(stats["cached_after_gib"]), 1),
+                }
+                for name, stats in self._phase_io.items()
+            },
             "step_ms_median": step_ms_median,
             "step_ms_mean": step_ms_mean,
             "steps_counted": n,

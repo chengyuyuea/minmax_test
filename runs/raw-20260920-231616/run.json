@@ -1,5 +1,5 @@
 {
-  "run_id": "raw-231616",
+  "run_id": "raw-20260920-231616",
   "argv": [
     "/mnt/workspace/scripts/run_h3.py",
     "--prompt",
@@ -17,7 +17,7 @@
     "--tag",
     "raw-noaccel",
     "--run-id",
-    "raw-231616"
+    "raw-20260920-231616"
   ],
   "env": {
     "hostname": "dsw-1060989-6cb85bf96c-j97fp",
@@ -72,12 +72,12 @@
     "num_frames": 124,
     "steps": 50,
     "seed": 0,
-    "out": "/mnt/workspace/outputs/raw-231616/video.mp4",
+    "out": "/mnt/workspace/outputs/raw-20260920-231616/video.mp4",
     "outputs_dir": "/mnt/workspace/outputs",
     "model_dir": "/mnt/workspace/MiniMax-H3",
     "lora": null,
     "lora_scale": 1.0,
-    "run_id": "raw-231616",
+    "run_id": "raw-20260920-231616",
     "runs_dir": "/mnt/workspace/runs",
     "monitor_hz": 2.0,
     "tag": "raw-noaccel",
@@ -94,9 +94,9 @@
     "tf32": false,
     "generator": null
   },
-  "output": "/mnt/workspace/outputs/raw-231616/video.mp4",
+  "output": "/mnt/workspace/outputs/raw-20260920-231616/video.mp4",
   "outputs": [
-    "/mnt/workspace/outputs/raw-231616/video.mp4"
+    "/mnt/workspace/outputs/raw-20260920-231616/video.mp4"
   ],
   "fps": 24,
   "finished_at": "2026-09-20T23:39:00"

@@ -1,0 +1,219 @@
+{
+  "run_id": "sage_fbcache015-20260928-200056",
+  "argv": [
+    "scripts/run_h3.py",
+    "--prompt",
+    "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+    "--steps",
+    "50",
+    "--seed",
+    "0",
+    "--drop-page-cache",
+    "--cache-dit",
+    "--cache-dit-threshold",
+    "0.15",
+    "--tag",
+    "sage-fbcache015-cold",
+    "--run-id",
+    "sage_fbcache015-20260928-200056"
+  ],
+  "env": {
+    "hostname": "dsw-1060989-6cb85bf96c-j97fp",
+    "python": "3.12.13",
+    "torch": "2.13.0+cu130",
+    "torch_cuda": "13.0",
+    "cudnn": 92000,
+    "attn_backend": "sage",
+    "diffusers": "0.40.0",
+    "gpu": "NVIDIA A100-SXM4-80GB",
+    "gpu_capability": "8.0",
+    "driver": "550.163.01",
+    "flash_attn": "2.8.3",
+    "sageattention": "2.2.0",
+    "triton": "3.7.1",
+    "host_mem_total_gib": 122.8,
+    "host_mem_available_gib": 117.4,
+    "host_cached_gib": 113.2
+  },
+  "started_at": "2026-09-28T20:01:05",
+  "hz": 2.0,
+  "wall_seconds": 644.4,
+  "load_seconds_total": 397.2,
+  "run_seconds_total": 230.6,
+  "overhead_seconds": 16.6,
+  "phase_seconds": {
+    "init": 0.3,
+    "load:before_encode": 0.0,
+    "run:before_encode": 0.0,
+    "free:before_encode": 0.3,
+    "load:text_encoder": 183.7,
+    "run:text_encoder": 0.8,
+    "free:text_encoder": 0.4,
+    "load:vae_encoder": 29.4,
+    "run:vae_encoder": 0.0,
+    "free:vae_encoder": 0.3,
+    "load:denoise": 180.5,
+    "run:denoise": 206.9,
+    "free:denoise": 5.7,
+    "load:decode": 3.6,
+    "run:decode": 19.5,
+    "free:decode": 0.3,
+    "encode_mp4": 3.4
+  },
+  "phase_io": {
+    "init": {
+      "read_gib": 0.01,
+      "major_faults": 0,
+      "cached_before_gib": 2.8,
+      "cached_after_gib": 2.8
+    },
+    "load:before_encode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 2.8,
+      "cached_after_gib": 2.8
+    },
+    "run:before_encode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 2.8,
+      "cached_after_gib": 2.8
+    },
+    "free:before_encode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 2.8,
+      "cached_after_gib": 2.8
+    },
+    "load:text_encoder": {
+      "read_gib": 62.14,
+      "major_faults": 255672,
+      "cached_before_gib": 2.8,
+      "cached_after_gib": 65.0
+    },
+    "run:text_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 65.0,
+      "cached_after_gib": 65.0
+    },
+    "free:text_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 65.0,
+      "cached_after_gib": 65.0
+    },
+    "load:vae_encoder": {
+      "read_gib": 10.26,
+      "major_faults": 42558,
+      "cached_before_gib": 65.0,
+      "cached_after_gib": 75.3
+    },
+    "run:vae_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 75.3,
+      "cached_after_gib": 75.3
+    },
+    "free:vae_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 75.3,
+      "cached_after_gib": 75.3
+    },
+    "load:denoise": {
+      "read_gib": 61.73,
+      "major_faults": 253645,
+      "cached_before_gib": 75.3,
+      "cached_after_gib": 117.9
+    },
+    "run:denoise": {
+      "read_gib": 0.01,
+      "major_faults": 148,
+      "cached_before_gib": 117.9,
+      "cached_after_gib": 117.8
+    },
+    "free:denoise": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.8,
+      "cached_after_gib": 117.8
+    },
+    "load:decode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.8,
+      "cached_after_gib": 117.8
+    },
+    "run:decode": {
+      "read_gib": 0.02,
+      "major_faults": 164,
+      "cached_before_gib": 117.8,
+      "cached_after_gib": 113.2
+    },
+    "free:decode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 113.2,
+      "cached_after_gib": 113.2
+    },
+    "encode_mp4": {
+      "read_gib": 0.01,
+      "major_faults": 0,
+      "cached_before_gib": 113.2,
+      "cached_after_gib": 113.2
+    }
+  },
+  "step_ms_median": 325.0,
+  "step_ms_mean": 4334.1,
+  "steps_counted": 49,
+  "peak_torch_alloc_gib": 69.24,
+  "peak_nvml_used_gib": 71.98,
+  "peak_host_used_gib": 8.6,
+  "tag": "sage-fbcache015-cold",
+  "args": {
+    "prompt": "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+    "image": null,
+    "last_image": null,
+    "height": 768,
+    "width": 1344,
+    "num_frames": 124,
+    "steps": 50,
+    "seed": 0,
+    "out": "/mnt/workspace/outputs/sage_fbcache015-20260928-200056/video.mp4",
+    "outputs_dir": "/mnt/workspace/outputs",
+    "model_dir": "/mnt/workspace/MiniMax-H3",
+    "lora": null,
+    "lora_scale": 1.0,
+    "run_id": "sage_fbcache015-20260928-200056",
+    "runs_dir": "/mnt/workspace/runs",
+    "monitor_hz": 2.0,
+    "tag": "sage-fbcache015-cold",
+    "no_load_opt": false,
+    "parallel_load": false,
+    "profile": false,
+    "cache_dit": true,
+    "cache_dit_threshold": 0.15,
+    "repeat": 1,
+    "reuse_text_embeds": false,
+    "compile": false,
+    "compile_fullgraph": false,
+    "prompt_file": null,
+    "batch_limit": null,
+    "drop_page_cache": true,
+    "tf32": false,
+    "generator": null
+  },
+  "output": "/mnt/workspace/outputs/sage_fbcache015-20260928-200056/video.mp4",
+  "outputs": [
+    "/mnt/workspace/outputs/sage_fbcache015-20260928-200056/video.mp4"
+  ],
+  "fps": 24,
+  "page_cache": {
+    "dropped": true,
+    "files": 102,
+    "cached_before_gib": 112.41,
+    "cached_after_gib": 2.76
+  },
+  "finished_at": "2026-09-28T20:11:49"
+}

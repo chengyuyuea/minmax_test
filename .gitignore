@@ -12,9 +12,6 @@ __pycache__/
 *.pyo
 *.pyd
 
-# ── 生成的大体积视频（已备份到 OSS /mnt/data，不入库）──
-*.mp4
-
 # ── 系统噪声 ──
 .DS_Store
 *.swp

@@ -1,0 +1,22 @@
+[
+  {"prompt": "A red fox walks through a snowy pine forest at dawn, cinematic lighting.", "seed": 0},
+  {"prompt": "A wooden canoe drifts across a misty mountain lake at sunrise.", "seed": 1},
+  {"prompt": "A barista pours latte art beside a warm sunlit window.", "seed": 2},
+  {"prompt": "Neon reflections shimmer across a rain-soaked city crossing at night.", "seed": 3},
+  {"prompt": "Ocean waves roll toward black volcanic sand under a cloudy sky.", "seed": 4},
+  {"prompt": "A steam train crosses an old stone bridge in autumn fog.", "seed": 5},
+  {"prompt": "Fireflies drift above a quiet meadow beneath a full moon.", "seed": 6},
+  {"prompt": "A potter shapes wet clay on a spinning wheel in a rustic studio.", "seed": 7},
+  {"prompt": "A hummingbird hovers beside bright flowers in slow motion.", "seed": 8},
+  {"prompt": "A cyclist follows a winding coastal road at golden hour.", "seed": 9},
+  {"prompt": "Snow falls around a small cabin glowing warmly in the mountains.", "seed": 10},
+  {"prompt": "A sailboat glides through calm turquoise water near tropical cliffs.", "seed": 11},
+  {"prompt": "A chef slices colorful vegetables in a busy open kitchen.", "seed": 12},
+  {"prompt": "A waterfall descends through dense green rainforest after rain.", "seed": 13},
+  {"prompt": "An astronaut walks across a red desert beneath two moons.", "seed": 14},
+  {"prompt": "Cherry blossoms fall along a quiet riverside path in spring.", "seed": 15},
+  {"prompt": "A glass marble rolls across a polished wooden table in sunlight.", "seed": 16},
+  {"prompt": "Wild horses run across a wide grassland under dramatic clouds.", "seed": 17},
+  {"prompt": "A lighthouse beam sweeps across a stormy sea at night.", "seed": 18},
+  {"prompt": "A paper lantern rises above an ancient town during a festival.", "seed": 19}
+]
