@@ -16,7 +16,7 @@
 | SageAttention + FBCache 0.25 | 136.9 | 569.5 | 2.23× |
 | 上述组合，阶段主序 batch=20 | 144.8 | 191.1/视频 | 6.64× |
 
-- 冷启动加载约 397 秒，当前没有已验证的单视频代码级加载加速手段。
+- 冷启动加载约 397 秒；`HF_ENABLE_PARALLEL_LOADING` 现场 A/B 仅改善 0.13%，确认当前瓶颈仍是约 350 MiB/s 的存储读取。
 - FBCache 减少完整 Transformer 前向次数；阈值越高，速度越快，但质量损失通常越大。
 - SageAttention 缩短单次注意力计算，与 FBCache 的收益近似乘法叠加。
 - 阶段主序批处理让多个不同 prompt 共享组件加载，不是 tensor batch。

@@ -1,6 +1,6 @@
 # MiniMax-H3 视频生成推理：从架构原理到加速实践
 
-> **TL;DR** MiniMax-H3 是 33B 参数的多模态视频生成模型，单卡 A100-80GB 无加速冷启动单视频 1269 s（加载 397 s + 去噪 830 s）。本文先剖析其「文本编码 → VAE → 打包多模态序列 → 50 层 Transformer 去噪 → 解码」的完整数据流（Part I），再记录加速实验（Part II）。**所有加速实验只针对 T2VA（文本→视频+音频）模式**（§0 研究范围），所有数字来自同一套软硬件环境。结论：FBCache 把 49 次完整前向降到 8–13 次（denoise 3.6–5.5×，有损）；SageAttention 把注意力 kernel 加速 1.22×、单步 −9.6%，与 FBCache 按乘法叠加；**加载阶段没有单视频加速手段**（固定 ~397 s，受磁盘 ~350 MiB/s 限制，device_map 无效），只能靠阶段主序批处理摊薄；torch.compile 与 Sage+FBCache 叠加在可变 prompt 下出现 2/5 黑帧，**未通过正确性验证**。Sage+FBCache 0.25：单视频冷启动 570 s（2.23×），批处理 N=20 每视频 191 s（6.64×），边际极限 ~171 s/视频。
+> **TL;DR** MiniMax-H3 是 33B 参数的多模态视频生成模型，单卡 A100-80GB 无加速冷启动单视频 1269 s（加载 397 s + 去噪 830 s）。本文先剖析其「文本编码 → VAE → 打包多模态序列 → 50 层 Transformer 去噪 → 解码」的完整数据流（Part I），再记录加速实验（Part II）。**所有加速实验只针对 T2VA（文本→视频+音频）模式**（§0 研究范围），所有数字来自同一套软硬件环境。结论：FBCache 把 49 次完整前向降到 8–13 次（denoise 3.6–5.5×，有损）；SageAttention 把注意力 kernel 加速 1.22×、单步 −9.6%，与 FBCache 按乘法叠加；**当前 diffusers 路径没有有效的单视频 cold-load 代码级加速**：现场 A/B 中 `--parallel-load` 仅使 396.4 s 降至 395.9 s（−0.13%，噪声内），瓶颈仍是磁盘 ~350 MiB/s，阶段主序批处理可将其摊薄；SGLang 0.5.20 已确认包含原生 H3 pipeline，但当前本地 checkpoint 布局与其发布契约不兼容，完整 runtime 也必须隔离安装后才能启动验证；torch.compile 与 Sage+FBCache 叠加在可变 prompt 下出现 2/5 黑帧，**未通过正确性验证**。Sage+FBCache 0.25：单视频冷启动 570 s（2.23×），批处理 N=20 每视频 191 s（6.64×），边际极限 ~171 s/视频。
 
 ## 0. 阅读指南
 
@@ -10,7 +10,7 @@
 
 | 标记 | 含义 | 验证方式 |
 |---|---|---|
-| **实测** | 本机跑出，附 run ID | `runs/<id>/run.json` |
+| **实测** | 本机跑出，附 run ID | 主线：`runs/<id>/run.json`；诊断/失败/旧口径：`runs/bak/<id>/run.json` |
 | **官方声称** | MiniMax / SGLang 文档原文 | 附文档行号或 URL |
 | **推导** | 由实测数据计算 | 附计算过程 |
 
@@ -60,6 +60,8 @@ H3-Base 支持 T2VA / FL2VA / Ref2VA 三种任务模式（§1），但**本文 P
 | `repeat<R>` / `reuse` | 同进程重复 R 次 / 复用文本嵌入（仅作测量手段，不是加速策略） | `repeat2_reuse` |
 
 没有任何手段时为 `raw`。例：`batch20_sage_fbcache025-20260928-114735` = 20 条不同 prompt 批处理 + Sage + FBCache 0.25。`--drop-page-cache`（冷启动）是测量条件而非方法，不进入名字，记录在 `run.json.page_cache.dropped`。早期手动编号（如 `-b1`、`-c1`、`-s1`，分别是第 1 次批处理 / 标定 / sage-only 试跑）已按此规则统一重命名，旧 ID 保留在 `run.json.renamed_from`。
+
+`runs/` 与 `outputs/` 根目录只保留统一环境下可交付的 9 组主线结果；旧环境、非 50 步 profile/加载标定、repeat/reuse 噪声测量、单变量诊断和正确性失败结果均保留原目录名移入各自 `bak/`。归档只改变目录层级，不删除证据。
 
 ---
 
@@ -453,6 +455,7 @@ Run：`steps2-20260928-202235`（**实测**）。表中 `Command Buffer Full` �
 
 | 作用阶段 | 方法 | 当前状态 | 本机结论 |
 |---|---|---|---|
+| load | `HF_ENABLE_PARALLEL_LOADING` | 已验证无有效收益（§10） | 396.4 → 395.9 s（−0.13%，噪声内） |
 | load | 阶段主序批处理 | 已验证（§13） | 不缩短一次加载；N=20 将 396.7 s 摊为 19.8 s/视频 |
 | denoise / 前向次数 | FBCache | 已验证（§11） | 阈值 0.15/0.20/0.25 分别约 13/11/8 次完整前向 |
 | denoise / 单次前向 | SageAttention | 已验证（§12） | 注意力 kernel 1.215×；单步 −9.6% |
@@ -464,20 +467,19 @@ Run：`steps2-20260928-202235`（**实测**）。表中 `Command Buffer Full` �
 
 同阶段手段必须独立消融：FBCache 相对 raw、SageAttention 相对 raw 分别测量，组合值只做乘法校验；批处理作用于 load，可与 denoise 优化直接组合。
 
-## 10. 实践 1：加载阶段——当前没有单视频加速手段
+## 10. 实践 1：加载阶段——并行加载现场 A/B
 
-T2VA 冷启动需依次读取约 134 GiB 权重，L_cold = 396.7 s。受控对照如下：
+T2VA 冷启动需依次读取约 134 GiB 权重，L_cold = 396.7 s。除原有 `device_map` 对照外，本次直接执行了 `--parallel-load` 探针。两组均使用同一 prompt/seed、`--steps 2`、`--drop-page-cache`，因此都完整加载 text encoder、VAE、transformer 和 decode VAE，但只执行 1 次 Transformer forward；产物直接写入 `runs/bak/` 与 `outputs/bak/`，不进入 9 组主线。
 
-| 配置 | text_encoder | VAE | transformer | decode VAE | load 合计 | 结论 |
-|---|---:|---:|---:|---:|---:|---|
-| `device_map=cuda`（默认） | 183.3 | 29.4 | 180.4 | 3.5 | 396.6 | 基准 |
-| `--no-load-opt`（host 中转） | 182.5 | 29.6 | 180.5 | 3.6 | 396.2 | 相差 0.1%，噪声内 |
+| 配置 | text_encoder | VAE | transformer | decode VAE | load 合计 | 相对串行 | run ID |
+|---|---:|---:|---:|---:|---:|---:|---|
+| `device_map=cuda`，串行分片 | 183.4 | 29.2 | 180.4 | 3.4 | **396.4** | 基准 | `probe_parallel_off-20260929-01` |
+| `device_map=cuda`，`--parallel-load` | 183.1 | 29.4 | 180.2 | 3.2 | **395.9** | **−0.5 s（−0.13%）** | `probe_parallel_on-20260929-01` |
+| `--no-load-opt`（历史 host 中转对照） | 182.5 | 29.6 | 180.5 | 3.6 | 396.2 | −0.1%，噪声内 | `nodevmap_steps2-20260928-152320` |
 
-无 `device_map` 对照 run：`nodevmap_steps2-20260928-152320`。
+并行开关通过脚本在导入 diffusers 前设置 `HF_ENABLE_PARALLEL_LOADING=1`，实验组确实记录了 `args.parallel_load=true`。串行/并行分别读取 134.18/134.14 GiB，主要阶段 major faults 分别约 55.24/55.17 万次；两份 MP4 的 SHA-256 均为 `3b1de08c4452ca69cd3ec9e7fff8038140d0db9cb5a9ed6809b135e914c99ad0`。因此结果既没有质量或执行路径变化，也没有超过 §7.3 中 1% 的可区分阈值。
 
-`device_map` 没有加速，是因为约 350 MiB/s 的磁盘读取才是瓶颈，host→device 拷贝快得多。`--reuse-text-embeds` 只适用于同一 prompt 重复生成，不是通用加载优化，已从主线结论删除。
-
-截至当前实验，**没有找到能降低单视频绝对 load 的代码级手段**。唯一已验证有效的是 §13 的阶段主序批处理：它不缩短一次 396.7 s 加载，而是让 N 个不同 prompt 共享这次加载，使每视频承担 L_cold/N。常驻服务、更快存储、并行分片读取、权重量化后常驻均可能有效，但尚未实测，不能写成已有收益。
+**实测结论：`device_map` 和 Hugging Face 并行分片加载在当前 cloud disk 上都无有效收益。** 约 350 MiB/s 的存储读取才是瓶颈，增加 shard worker 无法提高总带宽。当前唯一已验证有效的通用策略仍是 §13 的阶段主序批处理：它不缩短一次加载，而是让不同 prompt 分摊 L_cold。若要降低绝对 cold load，下一步必须改变存储带宽、读取字节量或服务生命周期，详细边界见 §15.3。
 
 ## 11. 实践 2：FBCache 残差缓存
 
@@ -563,7 +565,7 @@ FBCache 减少完整前向次数，Sage 缩短每次前向；0.25 下两者都�
 | free + other | 6.5 | 5.6 | 5.3 |
 | M | 172.2 | 170.9 | 171.3 |
 | **T_batch** | **251.6** | **210.6** | **191.1** |
-| NVML 峰值 | 69.5 GiB | 72.9 GiB | 73.7 GiB |
+| NVML 峰值 | 73.7 GiB | 73.7 GiB | 73.7 GiB |
 | run ID | `batch5_sage_fbcache025-20260928-105413` | `batch10_sage_fbcache025-20260928-111414` | `batch20_sage_fbcache025-20260928-114735` |
 
 M 在 N=5/10/20 间只波动 ±0.7 s，说明没有逐视频累积开销或显存泄漏。批处理只摊薄固定加载，N→∞ 的下限约为 M≈171 s；N=20 已把加载压到 19.8 s/视频。20 条不同 prompt 的平均 denoise 比狐狸单例高约 8 s，来自 FBCache 内容相关的跳步差异。
@@ -584,30 +586,34 @@ N=5 可变 prompt 实测中，video-1 和 video-4 的 latent 出现 NaN，decode
 
 黑帧两条也恰好 denoise 最快，符合“NaN 使 FBCache 比较恒为 False、随后持续跳过 block”的现象，但 NaN 来源尚未隔离，可能涉及动态形状、FBCache hook 状态或 Sage 与 Inductor 的交互。在定位并加入 `torch.isfinite` fail-fast 前，compile 不进入推荐配置，失败行也不计为性能收益。
 
-## 15. 综合对比与展望
+## 15. 综合对比与现场探索
 
-### 15.1 统一阶段分解（T2VA 768p/124 帧/50 步）
+### 15.1 全部主线性能结果（T2VA 768p/124 帧/50 步）
 
-下表按“加载组件 → 推理阶段 → M/T → 加速比”展开，单位均为秒/视频。raw 列来自完整 cold 实测；其他单视频列的加载组件使用统一冷加载标定，batch20 按 20 条视频摊销。
+主线定义为：当前统一环境、完成正确性检查、参数口径可用于最终比较的运行。`runs/` 与 `outputs/` 根目录共有 9 组，以下全部列出；profile、加载标定、repeat/reuse、旧环境和失败运行已归档到 `bak/`，不混入主线统计。单视频统一使用 `T_cold = 396.7 + M`（raw 同时给出实测 wall 1269.0 s），批处理使用 `T_batch = 396.7/N + M`。单位除特别标注外均为秒/视频。
 
-| 阶段 | 原始 raw cold | 仅 FBCache 0.25 | 仅 Sage | FBCache 0.25 + Sage | FBCache 0.25 + Sage，batch20 |
-|---|---:|---:|---:|---:|---:|
-| 加载 text_encoder | 183.5 | 183.3 | 183.3 | 183.3 | 9.2 |
-| 加载 VAE encoder | 29.4 | 29.4 | 29.4 | 29.4 | 1.5 |
-| 加载 transformer | 180.4 | 180.4 | 180.4 | 180.4 | 9.0 |
-| 加载 decode VAE | 3.6 | 3.5 | 3.5 | 3.5 | 0.2 |
-| **加载小计 L** | **396.9** | **396.7** | **396.7** | **396.7** | **19.8** |
-| 文本编码 | 0.8 | 0.8 | 0.8 | 0.8 | 0.1 |
-| denoise | 829.9 | 151.5 | 749.9 | 136.9 | 144.8 |
-| decode | 20.0 | 17.9 | 19.6 | 19.6 | 17.7 |
-| MP4 编码 | 3.4 | 3.4 | 3.4 | 3.4 | 3.3 |
-| 释放 / 未计时开销 | 18.0 | 11.4 | 16.3 | 12.1 | 5.3 |
-| **去掉加载后的每视频成本 M** | **872.1** | **185.0** | **790.0** | **172.8** | **171.3** |
-| **每视频总耗时 T** | **1269.0（实测）** | **581.7** | **1186.7** | **569.5** | **191.1** |
-| **相对原始** | **1.00×** | **2.18×** | **1.07×** | **2.23×** | **6.64×** |
-| run ID | `raw-20260929-103055` | `fbcache025-20260928-203358` | `sage-20260928-165335` | `sage_fbcache025-20260928-204352` | `batch20_sage_fbcache025-20260928-114735` |
+#### 单视频：独立消融与 FBCache 阈值扫描
 
-阈值扫描的 Sage+FBCache 0.15/0.20 结果保留在 §11.2，不重复扩宽主表。现有结果显示：Sage+FBC 0.25 将 denoise 压到 136.9 s 后，加载成为单视频主瓶颈；batch20 将加载摊到 19.8 s 后，瓶颈回到 GPU 计算。
+| 配置 | 完整前向/视频 | L | 文本编码 | denoise | decode | MP4 | free + 其他 | M | T_cold | 相对 raw | NVML 峰值 | run ID |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| raw SDPA | 49 | 396.9（实测） | 0.8 | 829.9 | 20.0 | 3.4 | 18.0 | 872.1 | **1269.0（实测）** | 1.00× | 70.6 GiB | `raw-20260929-103055` |
+| 仅 Sage | 49 | 396.7 | 0.8 | 749.9 | 19.6 | 3.4 | 16.3 | 790.0 | **1186.7** | 1.07× | 70.5 GiB | `sage-20260928-165335` |
+| SDPA + FBC 0.25 | 8.02 | 396.7 | 0.8 | 151.5 | 17.9 | 3.4 | 11.4 | 185.0 | **581.7** | 2.18× | 72.5 GiB | `fbcache025-20260928-203358` |
+| Sage + FBC 0.15 | 13.03 | 396.7 | 0.8 | 206.9 | 19.5 | 3.4 | 16.6 | 247.2 | **643.9** | 1.97× | 72.0 GiB | `sage_fbcache015-20260928-200056` |
+| Sage + FBC 0.20 | 11.02 | 396.7 | 0.8 | 176.7 | 19.5 | 3.4 | 16.8 | 217.2 | **613.9** | 2.07× | 72.3 GiB | `sage_fbcache020-20260928-201152` |
+| Sage + FBC 0.25 | 8.02 | 396.7 | 0.8 | 136.9 | 19.6 | 3.4 | 12.1 | 172.8 | **569.5** | 2.23× | 72.0 GiB | `sage_fbcache025-20260928-204352` |
+
+#### 多 prompt：阶段主序 N-scaling
+
+三组 batch 使用同一组 Sage + FBCache 0.25 参数，但每条视频的 FBCache 命中率随内容变化；它们测的是不同 prompt 的真实均值，不强行套用狐狸单例的 8.02 次完整前向。
+
+| N | L/N | 文本编码 | denoise | decode | MP4 | free + 其他 | M | T_batch | 相对 raw | NVML 峰值 | run ID |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| 5 | 79.3 | 0.3 | 144.3 | 18.0 | 3.2 | 6.5 | 172.2 | **251.6** | 5.04× | 73.7 GiB | `batch5_sage_fbcache025-20260928-105413` |
+| 10 | 39.7 | 0.2 | 144.2 | 17.8 | 3.1 | 5.6 | 170.9 | **210.6** | 6.03× | 73.7 GiB | `batch10_sage_fbcache025-20260928-111414` |
+| 20 | 19.8 | 0.1 | 144.8 | 17.7 | 3.3 | 5.3 | 171.3 | **191.1** | 6.64× | 73.7 GiB | `batch20_sage_fbcache025-20260928-114735` |
+
+九组结果给出一致的瓶颈迁移：raw 由 denoise 主导；Sage+FBC 0.25 把 denoise 压到 136.9 s 后，单视频由 396.7 s load 主导；N=20 把 load 摊到 19.8 s/视频后，瓶颈重新回到约 145 s 的 GPU denoise。N→∞ 只能逼近 M≈171 s，继续增大 N 不会再缩短单条计算。
 
 ### 15.2 质量与正确性
 
@@ -620,13 +626,60 @@ N=5 可变 prompt 实测中，video-1 和 video-4 的 latent 出现 NaN，decode
 | Sage+FBC 0.15 | 20.05 / 0.784 | 7.11 dB | 扫描点中视频与音频指标均最好 |
 | Sage+FBC 0.20 | 17.97 / 0.759 | 2.80 dB | 相对 0.25 的视频增益有限，音频 SNR 更低 |
 | Sage+FBC 0.25 | 17.62 / 0.744 | 3.41 dB | 最快单视频配置 |
-| Sage+compile+FBC 0.25 | — | — | 2/5 黑帧，不可交付 |
+| Sage+compile+FBC 0.25 | — | — | 2/5 黑帧，已归档，不可交付 |
 
-当前未设自动 PASS/FAIL 阈值，因为 PSNR/SSIM/audio SNR 的业务可接受线尚未定义；脚本支持传入阈值后作为真正门禁返回非零退出码。
+当前未设自动 PASS/FAIL 阈值，因为 PSNR/SSIM/audio SNR 的业务可接受线尚未定义；脚本支持传入阈值后作为真正门禁返回非零退出码。batch5/10/20 使用不同 prompt 集合，目前没有每条 prompt 对应的 raw 参考，因此只报告性能，不伪造跨 prompt 质量指标。
 
-### 15.3 未覆盖与下一步
+### 15.3 Load 阶段现场探索结果
 
-当前环境没有验证 Turbo LoRA、TF32、仅 compile、SDPA 下完整 FBC 阈值扫描；不引用其他机器的历史收益。优先级为：① 扩充多 prompt 质量集；② 隔离 compile NaN；③ 评估权重量化或常驻服务降低 load；④ 多卡 Ulysses 分摊 37736-token 注意力。结论不外推到 FL2VA/Ref2VA。
+#### 已回答的问题
+
+- **线程级并行不能加速当前 cold load。** §10 的现场 A/B 为 396.4 → 395.9 s（−0.13%），低于 1% 噪声阈值；text encoder 与 transformer 各自也只变化 0.1%–0.2%。
+- **397 s 不是模型结构下限，但已接近当前 cloud disk 的读取下限。** 串行和并行都读取约 134.1 GiB、产生约 55 万次 major fault，有效吞吐仍约 350 MiB/s。
+- **现有软件开关已基本排除。** `device_map` 与 host 中转差 0.1%，并行 shard worker 差 0.13%；两者都没有减少读取字节，也没有提高底层存储带宽。
+
+| 已探索手段 | 证据 | 结论 |
+|---|---|---|
+| `device_map=cuda` vs host 中转 | 396.6 vs 396.2 s | H2D 不是主瓶颈 |
+| `HF_ENABLE_PARALLEL_LOADING=1` | 396.4 vs 395.9 s；输出 SHA-256 相同 | shard 并发不能突破当前磁盘吞吐 |
+| page cache 暖态 | 134.1 GiB 工作集大于约 112 GiB 可用 cache | 不能稳定容纳全部组件，不能作为 cold-start 方案 |
+| 阶段主序批处理 | N=20 时 L/N=19.8 s/视频 | 有效提升吞吐，但不缩短首次启动 |
+
+仍有价值的方向已经不是“小改一个 loader 参数”，而是改变物理约束：更快本地 NVMe/更高规格云盘；使用预量化 checkpoint 减少读取字节；或改成长驻服务/阶段队列，只支付一次加载成本。顺序预读、direct I/O 与 checkpoint 重打包只有在实测能把底层吞吐推过约 350 MiB/s 时才值得继续；单纯提前填 page cache 只会转移计时位置。跨阶段预取的上限也很低，因为 text encode 仅 0.8 s、T2VA VAE encode 近乎 0，无法隐藏约 180 s 的下一组件读取。
+
+因此对当前机器的结论是：**继续调整 diffusers 分片线程没有意义；若目标是单次 cold start，下一次有效实验应直接更换存储介质或预量化权重；若目标是在线吞吐，应转向常驻 runtime。** 本次两个 probe 已归档，不进入主线结果。
+
+### 15.4 SGLang 现场接入探索
+
+本次不是只阅读文档，而是对最新 PyPI `sglang==0.5.20` 做了隔离探针：主包以 `--target /mnt/workspace/.sglang-probe --no-deps` 安装，未改动 base；随后核对实际 H3 pipeline、部署策略、checkpoint 契约和完整依赖解析。Docker CLI 存在但 daemon 不可连接，因此当前实例不能直接走官方容器路径。
+
+#### 已确认可用的能力
+
+SGLang 0.5.20 wheel 内确实包含原生 `MiniMaxH3Pipeline`，不是 diffusers fallback。它支持 T2VA/FL2VA/Ref2VA、SageAttention/稀疏 attention、Cache-DiT、TP/Ulysses/Ring/FSDP，以及 text encoder、DiT 和 VAE 的 layerwise offload。源码对 H3 的自动内存策略将整模型常驻阈值设为 120 GiB 可用 HBM；本机 A100 只有约 79 GiB，因此会进入 memory/layerwise-offload 路径，而不可能采用官方 4×H200 resident 配方。
+
+#### 当前实例上的三个实际阻塞
+
+| 检查项 | 现场结果 | 影响 |
+|---|---|---|
+| 完整 runtime | 主包可导入并报告 0.5.20；导入 H3 pipeline 时停止在 `ModuleNotFoundError: sgl_kernel` | 仅安装主 wheel 不足以启动；完整 runtime 需要 373 MiB 的 `sglang-kernel` 及多组固定版本 CUDA 扩展 |
+| base 兼容性 | 依赖解析要求 `diffusers==0.37.0`、`transformers==5.12.1`、`flashinfer_python==0.6.18` 等，而主线是 diffusers 0.40.0、transformers 5.16.1 | 不能安装进当前 base，否则会破坏已冻结复现口径；必须使用可启动的容器或完整隔离环境 |
+| 本地 checkpoint | `/mnt/workspace/MiniMax-H3` 没有 `FL2VA/`、`video_vae/` 和 `model_index.json._minimax_h3`；SGLang 的 `--model-variant fl2va` 固定映射到 `FL2VA/`，并要求原生 `video_vae/source/model.safetensors` 契约 | 当前裁剪快照不能直接作为 SGLang `--model-path`；需准备官方根仓库布局，不能只把目录改名 |
+
+此外，122.8 GiB host RAM 也是实际约束：SGLang 的 resident loader 已有公开实测显示 DiT 会先在 CPU staging 约 58 GiB/进程；单卡虽不会发生多 rank 线性放大，但 text encoder、映射页、runtime 与 pinned buffer 仍会竞争内存。SGLang 0.5.20 提供 `--direct-gpu-weight-loading`，但它只适用于 GPU-resident DiT，与本机必须使用的 DiT layerwise offload 互斥，不能拿来解决本机 cold load。
+
+#### 当前结论与可执行接入方式
+
+**SGLang 可以引入，但当前实例还不能直接启动 H3。** 问题不在“是否有 H3 实现”，而在完整 runtime 交付、模型发布布局和单卡内存策略。后续接入必须保持为独立后端：
+
+1. 提供可工作的 Docker daemon，并使用官方 SGLang diffusion 镜像；或准备独立环境及其完整 CUDA wheel 镜像。不能覆盖当前 base。
+2. 以官方根模型 ID `MiniMaxAI/MiniMax-H3` 或 `MiniMax/MiniMax-H3` 加 `--model-variant fl2va` 准备 checkpoint；当前扁平化 T2VA 快照继续服务 diffusers 主线。
+3. 单卡首次启动使用 `--performance-mode memory --layerwise-offload-components dit,text_encoder,vae --layerwise-resident-layers video_vae=36 --enable-torch-compile false`，先验证能否完成 load；不要先启用 Sage 或 Cache-DiT。
+4. 分开记录 server startup、首个 request 和第二个 warm request，并观察每个 denoise step 是否再次产生磁盘读取。若 layerwise offload 因 122.8 GiB RAM 不足而让磁盘进入每一步，SGLang 在本机不会成为加速方案。
+5. 只有 native/lossless 路径通过后，再分别测试 Sage 与 Cache-DiT，并重新做视频和音频质量比较；不能复用 diffusers 的阈值或质量数字。
+
+### 15.5 未覆盖与下一步
+
+当前环境没有验证 Turbo LoRA、TF32、仅 compile、SDPA 下完整 FBC 阈值扫描；SGLang 已完成代码、依赖和 checkpoint 契约探针，但尚未完成 runtime 启动和生成。下一步依赖外部条件：① 为 SGLang 提供可启动的容器 daemon 或完整隔离 wheel 环境；② 准备符合 `FL2VA/` 发布契约的官方根 checkpoint；③ 完成单卡 memory/offload 启动与 I/O 观测；④ 扩充多 prompt 质量集并隔离 compile NaN；⑤ 有多卡资源时测试 Ulysses。`--parallel-load` 已实测排除，不再重复。结论不外推到 FL2VA/Ref2VA。
 
 ---
 
@@ -669,6 +722,8 @@ N=5 可变 prompt 实测中，video-1 和 video-4 的 latent 出现 NaN，decode
 
 - MiniMax-H3: `https://github.com/MiniMaxAI/MiniMax-H3`
 - SGLang MiniMax-H3 cookbook: `https://docs.sglang.io/cookbook/diffusion/MiniMax/MiniMax-H3`
+- SGLang H3 resident-load host RAM issue: `https://github.com/sgl-project/sglang/issues/34902`
+- SGLang H3 local-path loading issue: `https://github.com/sgl-project/sglang/issues/33528`
 - diffusers FBCache: `diffusers.hooks.first_block_cache`（v0.40.0）
 - 实验代码：`scripts/run_h3.py`、`scripts/h3_monitor.py`、`scripts/h3_report.py`、`scripts/stage_table.py`
 
