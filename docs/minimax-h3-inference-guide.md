@@ -479,7 +479,7 @@ T2VA 冷启动需依次读取约 134 GiB 权重，L_cold = 396.7 s。除原有 `
 
 并行开关通过脚本在导入 diffusers 前设置 `HF_ENABLE_PARALLEL_LOADING=1`，实验组确实记录了 `args.parallel_load=true`。串行/并行分别读取 134.18/134.14 GiB，主要阶段 major faults 分别约 55.24/55.17 万次；两份 MP4 的 SHA-256 均为 `3b1de08c4452ca69cd3ec9e7fff8038140d0db9cb5a9ed6809b135e914c99ad0`。因此结果既没有质量或执行路径变化，也没有超过 §7.3 中 1% 的可区分阈值。
 
-**实测结论：`device_map` 和 Hugging Face 并行分片加载在当前 cloud disk 上都无有效收益。** 约 350 MiB/s 的存储读取才是瓶颈，增加 shard worker 无法提高总带宽。当前唯一已验证有效的通用策略仍是 §13 的阶段主序批处理：它不缩短一次加载，而是让不同 prompt 分摊 L_cold。若要降低绝对 cold load，下一步必须改变存储带宽、读取字节量或服务生命周期，详细边界见 §15.3。
+**实测结论：`device_map` 和 Hugging Face 并行分片加载在当前 cloud disk 上都无有效收益。** 约 350 MiB/s 的存储读取才是瓶颈，增加 shard worker 无法提高总带宽。当前唯一已验证有效的通用策略仍是 §13 的阶段主序批处理：它不缩短一次加载，而是让不同 prompt 分摊 L_cold。若要降低绝对 cold load，下一步必须改变存储带宽、读取字节量或服务生命周期，详细边界见 §15.4。
 
 ## 11. 实践 2：FBCache 残差缓存
 
@@ -586,36 +586,65 @@ N=5 可变 prompt 实测中，video-1 和 video-4 的 latent 出现 NaN，decode
 
 黑帧两条也恰好 denoise 最快，符合“NaN 使 FBCache 比较恒为 False、随后持续跳过 block”的现象，但 NaN 来源尚未隔离，可能涉及动态形状、FBCache hook 状态或 Sage 与 Inductor 的交互。在定位并加入 `torch.isfinite` fail-fast 前，compile 不进入推荐配置，失败行也不计为性能收益。
 
-## 15. 综合对比与现场探索
+## 15. 综合对比与完整实验台账
 
-### 15.1 全部主线性能结果（T2VA 768p/124 帧/50 步）
+### 15.1 正式主线结果：9/9 全量覆盖（T2VA 768p/124 帧/50 步）
 
-主线定义为：当前统一环境、完成正确性检查、参数口径可用于最终比较的运行。`runs/` 与 `outputs/` 根目录共有 9 组，以下全部列出；profile、加载标定、repeat/reuse、旧环境和失败运行已归档到 `bak/`，不混入主线统计。单视频统一使用 `T_cold = 396.7 + M`（raw 同时给出实测 wall 1269.0 s），批处理使用 `T_batch = 396.7/N + M`。单位除特别标注外均为秒/视频。
+正式主线定义为：当前统一环境、已完成运行和正确性检查、参数口径可用于最终比较的 50 步 T2VA 实验。`runs/` 与 `outputs/` 根目录共 9 组，下面按 6 组单视频消融和 3 组多 prompt 吞吐实验逐项列出，没有省略阈值扫描点或 batch 规模。
 
-#### 单视频：独立消融与 FBCache 阈值扫描
+为避免再次把“实测结果”和“统一口径推导”混在一起，表中同时保留：
 
-| 配置 | 完整前向/视频 | L | 文本编码 | denoise | decode | MP4 | free + 其他 | M | T_cold | 相对 raw | NVML 峰值 | run ID |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| raw SDPA | 49 | 396.9（实测） | 0.8 | 829.9 | 20.0 | 3.4 | 18.0 | 872.1 | **1269.0（实测）** | 1.00× | 70.6 GiB | `raw-20260929-103055` |
-| 仅 Sage | 49 | 396.7 | 0.8 | 749.9 | 19.6 | 3.4 | 16.3 | 790.0 | **1186.7** | 1.07× | 70.5 GiB | `sage-20260928-165335` |
-| SDPA + FBC 0.25 | 8.02 | 396.7 | 0.8 | 151.5 | 17.9 | 3.4 | 11.4 | 185.0 | **581.7** | 2.18× | 72.5 GiB | `fbcache025-20260928-203358` |
-| Sage + FBC 0.15 | 13.03 | 396.7 | 0.8 | 206.9 | 19.5 | 3.4 | 16.6 | 247.2 | **643.9** | 1.97× | 72.0 GiB | `sage_fbcache015-20260928-200056` |
-| Sage + FBC 0.20 | 11.02 | 396.7 | 0.8 | 176.7 | 19.5 | 3.4 | 16.8 | 217.2 | **613.9** | 2.07× | 72.3 GiB | `sage_fbcache020-20260928-201152` |
-| Sage + FBC 0.25 | 8.02 | 396.7 | 0.8 | 136.9 | 19.6 | 3.4 | 12.1 | 172.8 | **569.5** | 2.23× | 72.0 GiB | `sage_fbcache025-20260928-204352` |
+- **实测 L / wall**：对应 `run.json` 原始记录；
+- **统一 T**：使用 `L_cold=396.7 s` 重算的跨配置可比值，单视频为 `396.7 + M`，batch 为 `396.7/N + M`；
+- **M**：剔除加载后的每视频成本，包含 text encode、denoise、decode、MP4 和释放/其他开销。
 
-#### 多 prompt：阶段主序 N-scaling
+#### 单视频：6/6 独立消融与阈值扫描
 
-三组 batch 使用同一组 Sage + FBCache 0.25 参数，但每条视频的 FBCache 命中率随内容变化；它们测的是不同 prompt 的真实均值，不强行套用狐狸单例的 8.02 次完整前向。
+| 配置 | 完整前向/视频 | 实测 L | 实测 wall | 文本编码 | denoise | decode | MP4 | free + 其他 | M | 统一 T_cold | 相对 raw | NVML 峰值 | 输出/质量 | run ID |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|
+| raw SDPA | 49 | 396.9 | **1269.0** | 0.8 | 829.9 | 20.0 | 3.4 | 18.0 | 872.1 | **1269.0** | 1.00× | 70.6 GiB | 1/1；质量参考 | `raw-20260929-103055` |
+| 仅 Sage | 49 | 396.8 | **1186.8** | 0.8 | 749.9 | 19.6 | 3.4 | 16.3 | 790.0 | **1186.7** | 1.07× | 70.5 GiB | 1/1；已测质量 | `sage-20260928-165335` |
+| SDPA + FBC 0.25 | 8.02 | 398.4 | **583.4** | 0.8 | 151.5 | 17.9 | 3.4 | 11.4 | 185.0 | **581.7** | 2.18× | 72.5 GiB | 1/1；已测质量 | `fbcache025-20260928-203358` |
+| Sage + FBC 0.15 | 13.03 | 397.2 | **644.4** | 0.8 | 206.9 | 19.5 | 3.4 | 16.6 | 247.2 | **643.9** | 1.97× | 72.0 GiB | 1/1；已测质量 | `sage_fbcache015-20260928-200056` |
+| Sage + FBC 0.20 | 11.02 | 397.0 | **614.2** | 0.8 | 176.7 | 19.5 | 3.4 | 16.8 | 217.2 | **613.9** | 2.07× | 72.3 GiB | 1/1；已测质量 | `sage_fbcache020-20260928-201152` |
+| Sage + FBC 0.25 | 8.02 | 397.1 | **569.9** | 0.8 | 136.9 | 19.6 | 3.4 | 12.1 | 172.8 | **569.5** | 2.23× | 72.0 GiB | 1/1；已测质量 | `sage_fbcache025-20260928-204352` |
 
-| N | L/N | 文本编码 | denoise | decode | MP4 | free + 其他 | M | T_batch | 相对 raw | NVML 峰值 | run ID |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| 5 | 79.3 | 0.3 | 144.3 | 18.0 | 3.2 | 6.5 | 172.2 | **251.6** | 5.04× | 73.7 GiB | `batch5_sage_fbcache025-20260928-105413` |
-| 10 | 39.7 | 0.2 | 144.2 | 17.8 | 3.1 | 5.6 | 170.9 | **210.6** | 6.03× | 73.7 GiB | `batch10_sage_fbcache025-20260928-111414` |
-| 20 | 19.8 | 0.1 | 144.8 | 17.7 | 3.3 | 5.3 | 171.3 | **191.1** | 6.64× | 73.7 GiB | `batch20_sage_fbcache025-20260928-114735` |
+#### 多 prompt：3/3 阶段主序 N-scaling
 
-九组结果给出一致的瓶颈迁移：raw 由 denoise 主导；Sage+FBC 0.25 把 denoise 压到 136.9 s 后，单视频由 396.7 s load 主导；N=20 把 load 摊到 19.8 s/视频后，瓶颈重新回到约 145 s 的 GPU denoise。N→∞ 只能逼近 M≈171 s，继续增大 N 不会再缩短单条计算。
+三组 batch 使用同一组 Sage + FBCache 0.25 参数，但每条视频的 FBCache 命中率随内容变化。实测加载受 page cache 状态影响，因此“实测 wall/视频”用于忠实记录当次运行，“统一 T_batch”用于与单视频 cold 口径比较。
 
-### 15.2 质量与正确性
+| N | 实测 L 总计 | 实测 wall 总计 | 实测 wall/视频 | 统一 L/N | 文本编码 | denoise | decode | MP4 | free + 其他 | M | 统一 T_batch | 相对 raw | NVML 峰值 | 输出/质量 | run ID |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|
+| 5 | 280.2 | **1141.4** | 228.3 | 79.3 | 0.3 | 144.3 | 18.0 | 3.2 | 6.5 | 172.2 | **251.6** | 5.04× | 73.7 GiB | 5/5；无逐 prompt raw | `batch5_sage_fbcache025-20260928-105413` |
+| 10 | 266.4 | **1975.8** | 197.6 | 39.7 | 0.2 | 144.2 | 17.8 | 3.1 | 5.6 | 170.9 | **210.6** | 6.03× | 73.7 GiB | 10/10；无逐 prompt raw | `batch10_sage_fbcache025-20260928-111414` |
+| 20 | 295.5 | **3721.3** | 186.1 | 19.8 | 0.1 | 144.8 | 17.7 | 3.3 | 5.3 | 171.3 | **191.1** | 6.64× | 73.7 GiB | 20/20；无逐 prompt raw | `batch20_sage_fbcache025-20260928-114735` |
+
+九组主线的产物覆盖为 9/9 个 run 目录和 41/41 个 MP4。结果给出一致的瓶颈迁移：raw 由 denoise 主导；Sage+FBC 0.25 把 denoise 压到 136.9 s 后，单视频由约 397 s load 主导；N=20 按统一 cold 口径把 load 摊到 19.8 s/视频后，瓶颈重新回到约 145 s 的 GPU denoise。N→∞ 只能逼近 M≈171 s。
+
+### 15.2 辅助、失败与探索实验：14/14 全量台账
+
+以下运行不进入 9 组正式主线的加速比排序，但都是本项目已经执行并用于得出结论的实验。此前它们只散落在前文或完全没有在第 15 节出现，这是报告不完整的地方。现在统一列出，`wall` 均为原始 `run.json` 实测。
+
+| 类型 | 实验/口径 | 实测 wall | 关键结果与归档原因 | run ID |
+|---|---|---:|---|---|
+| 历史基线 | T2VA raw，50 步 | 1362.6 | denoise 829.0 s；load 受旧 page cache 状态影响，不替代正式 cold raw | `raw-20260920-231616` |
+| 功能验证 | FL2VA raw，50 步 | 1308.8 | denoise 977.1 s，step 中位数 20091.7 ms；证明 FL2VA 路径可运行，但不属于 T2VA 对比矩阵 | `fl2va_raw-20260920-234316` |
+| 历史 batch | Sage+FBC 0.25，N=3 | 817.6 | 三条输出完成；使用旧 prompt 文件和非统一 cold load，保留作阶段主序早期验证 | `batch3_sage_fbcache025-20260920-213701` |
+| 重复性 | SDPA+FBC 0.25，repeat=2 + reuse text | 579.1 | denoise 151.3/151.2 s，两份输出 bit-identical；用于证明重复稳定性 | `fbcache025_repeat2_reuse-20260920-181316` |
+| 重复性 | Sage+FBC 0.25，repeat=2 + reuse text | 500.5 | denoise 137.3/136.7 s，两份输出 bit-identical；用于证明组合稳定性 | `sage_fbcache025_repeat2_reuse-20260920-211122` |
+| 正确性失败 | Sage+FBC 0.25+compile，N=5 | 1122.6 | 5 条中 2 条 latent NaN/黑帧；结果不可交付，不计性能收益 | `batch5_sage_fbcache025_compile-20260928-125513` |
+| 早期 smoke | SDPA，2 步 | 309.3 | 单次 transformer 前向 17.2 s；早期加载口径和峰值显存异常，不作正式比较 | `steps2-20260920-172251` |
+| profiler | SDPA，2 步 | 209.6 | denoise 17.4 s；Self CUDA 17.094 s，用于 kernel 归因 | `steps2-20260928-202235` |
+| profiler | Sage，2 步 | 268.6 | denoise 15.9 s；Self CUDA 15.460 s，用于 Sage kernel 归因 | `sage_steps2-20260928-202608` |
+| load 标定 | SDPA，2 步，repeat=2，第 1 轮 cold | 508.0 | 第 1 轮 load 396.6 s；用于确认 cold-load 重复性 | `steps2_repeat2_reuse-20260928-145944` |
+| load 标定 | SDPA，2 步，repeat=2，第 1 轮 cold | 507.6 | 第 1 轮 load 396.8 s；与上一轮仅差 0.05% | `steps2_repeat2_reuse-20260928-150823` |
+| load 对照 | `--no-load-opt`，2 步 cold | 449.8 | load 396.2 s；host 中转与 `device_map=cuda` 无显著差异 | `nodevmap_steps2-20260928-152320` |
+| load 探针 | 串行 shard，2 步 cold | 449.6 | load 396.4 s；作为 parallel-load A/B 对照 | `probe_parallel_off-20260929-01` |
+| load 探针 | parallel shard，2 步 cold | 448.0 | load 395.9 s，仅改善 0.13%；输出与串行组 bit-identical | `probe_parallel_on-20260929-01` |
+
+至此，第 15 节覆盖仓库现存的全部 23 组运行：9 组正式主线和 14 组辅助/失败/探索实验。正式性能结论只取 9 组主线；其余 14 组保留证据价值并明确说明为何不混入排名。
+
+### 15.3 质量与正确性
 
 以下均相对同 prompt/seed 的 raw H.264/AAC 成片比较；视频不是 lossless 源，audio SNR 是两份 AAC 解码为 32 kHz 双声道浮点 PCM 后的逐样本波形 SNR。完整机器可读结果保存在 `logs/quality-fox-vs-raw.json`。
 
@@ -630,7 +659,7 @@ N=5 可变 prompt 实测中，video-1 和 video-4 的 latent 出现 NaN，decode
 
 当前未设自动 PASS/FAIL 阈值，因为 PSNR/SSIM/audio SNR 的业务可接受线尚未定义；脚本支持传入阈值后作为真正门禁返回非零退出码。batch5/10/20 使用不同 prompt 集合，目前没有每条 prompt 对应的 raw 参考，因此只报告性能，不伪造跨 prompt 质量指标。
 
-### 15.3 Load 阶段现场探索结果
+### 15.4 Load 阶段现场探索结果
 
 #### 已回答的问题
 
@@ -649,7 +678,7 @@ N=5 可变 prompt 实测中，video-1 和 video-4 的 latent 出现 NaN，decode
 
 因此对当前机器的结论是：**继续调整 diffusers 分片线程没有意义；若目标是单次 cold start，下一次有效实验应直接更换存储介质或预量化权重；若目标是在线吞吐，应转向常驻 runtime。** 本次两个 probe 已归档，不进入主线结果。
 
-### 15.4 SGLang 现场接入探索
+### 15.5 SGLang 现场接入探索
 
 本次不是只阅读文档，而是对最新 PyPI `sglang==0.5.20` 做了隔离探针：主包以 `--target /mnt/workspace/.sglang-probe --no-deps` 安装，未改动 base；随后核对实际 H3 pipeline、部署策略、checkpoint 契约和完整依赖解析。Docker CLI 存在但 daemon 不可连接，因此当前实例不能直接走官方容器路径。
 
@@ -677,7 +706,7 @@ SGLang 0.5.20 wheel 内确实包含原生 `MiniMaxH3Pipeline`，不是 diffusers
 4. 分开记录 server startup、首个 request 和第二个 warm request，并观察每个 denoise step 是否再次产生磁盘读取。若 layerwise offload 因 122.8 GiB RAM 不足而让磁盘进入每一步，SGLang 在本机不会成为加速方案。
 5. 只有 native/lossless 路径通过后，再分别测试 Sage 与 Cache-DiT，并重新做视频和音频质量比较；不能复用 diffusers 的阈值或质量数字。
 
-### 15.5 未覆盖与下一步
+### 15.6 未覆盖与下一步
 
 当前环境没有验证 Turbo LoRA、TF32、仅 compile、SDPA 下完整 FBC 阈值扫描；SGLang 已完成代码、依赖和 checkpoint 契约探针，但尚未完成 runtime 启动和生成。下一步依赖外部条件：① 为 SGLang 提供可启动的容器 daemon 或完整隔离 wheel 环境；② 准备符合 `FL2VA/` 发布契约的官方根 checkpoint；③ 完成单卡 memory/offload 启动与 I/O 观测；④ 扩充多 prompt 质量集并隔离 compile NaN；⑤ 有多卡资源时测试 Ulysses。`--parallel-load` 已实测排除，不再重复。结论不外推到 FL2VA/Ref2VA。
 
