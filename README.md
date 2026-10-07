@@ -1,6 +1,6 @@
 # MiniMax-H3 单卡推理加速实验
 
-本仓库记录 MiniMax-H3 在单张 NVIDIA A100-SXM4-80GB 上的推理、监控、性能分析与加速实验。当前性能结论仅针对 **T2VA（文本生成视频+音频）**：1344×768、124 帧、24 fps、50 个 sigma 网格点（实际 49 次 Transformer 前向）。
+本仓库记录 MiniMax-H3 在单张 NVIDIA A100-SXM4-80GB 上的推理、监控、性能分析与加速实验。正式主线仅针对 **T2VA（文本生成视频+音频）**：1344×768、124 帧、24 fps、50 个 sigma 网格点（实际 49 次 Transformer 前向）；Turbo LoRA 的 8-evaluation 结果作为独立探索记录。
 
 完整的架构分析、实验方法和质量结果见 [MiniMax-H3 推理指南](docs/minimax-h3-inference-guide.md)。
 
@@ -20,6 +20,7 @@
 - FBCache 减少完整 Transformer 前向次数；阈值越高，速度越快，但质量损失通常越大。
 - SageAttention 缩短单次注意力计算，与 FBCache 的收益近似乘法叠加。
 - 阶段主序批处理让多个不同 prompt 共享组件加载，不是 tensor batch。
+- Turbo LoRA v4 EMA 将 denoise 从 829.9 秒降至 130.2 秒（6.37×），统一 cold 总时长 568.0 秒；单 prompt 无黑帧，但与 raw 的 audio SNR 为 −8.58 dB，尚不能宣称等质。
 - `torch.compile` 与 SageAttention、FBCache 组合时出现 latent NaN 和黑帧，暂不推荐。
 
 ## 仓库结构
@@ -132,7 +133,7 @@ python3 scripts/h3_report.py \
 
 ## 已知限制
 
-- 性能与质量数据来自单张 A100-80GB，仅覆盖 T2VA 768p/124 帧/50 步。
+- 性能与质量数据来自单张 A100-80GB；正式主线覆盖 T2VA 768p/124 帧/50 步，Turbo LoRA 另按 9 个 sigma 点（8 次前向）独立探索。
 - FBCache 质量评估目前只覆盖一个主 prompt，阈值选择仍需业务样本集验证。
-- FL2VA 仅做过功能验证，Ref2VA、多卡、Turbo LoRA、TF32 和仅 compile 的独立消融未完成。
+- FL2VA 仅做过功能验证；Ref2VA、多卡、TF32 和仅 compile 的独立消融未完成。Turbo LoRA 已完成单 prompt 独立探索，但尚未在 SGLang runtime 内复核，也没有多 prompt 等质结论。
 - 非 cold run 的加载时间受 page cache 影响；跨配置比较应采用统一 cold 口径。

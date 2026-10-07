@@ -459,7 +459,7 @@ Run：`steps2-20260928-202235`（**实测**）。表中 `Command Buffer Full` �
 | load | 阶段主序批处理 | 已验证（§13） | 不缩短一次加载；N=20 将 396.7 s 摊为 19.8 s/视频 |
 | denoise / 前向次数 | FBCache | 已验证（§11） | 阈值 0.15/0.20/0.25 分别约 13/11/8 次完整前向 |
 | denoise / 单次前向 | SageAttention | 已验证（§12） | 注意力 kernel 1.215×；单步 −9.6% |
-| denoise | Turbo LoRA | 当前环境未测 | 历史第三方权重已丢失，不沿用旧环境数字 |
+| denoise / 前向次数 | Turbo LoRA | 已验证（§14） | cookbook 推荐 v4 EMA：9 个 sigma 点、8 次前向；denoise 130.2 s，统一冷启动 568.0 s |
 | denoise | `torch.compile` | 组合验证失败（§14） | Sage+FBCache+compile 的 5 条输出中 2 条黑帧 |
 | denoise | TF32 | 未测 | 不写收益数字 |
 | text encode / decode / MP4 | — | 无已验证手段 | 本项目只报告实测，不虚构收益 |
@@ -578,7 +578,29 @@ python3 scripts/run_h3.py --prompt-file scripts/batch_prompts_20.json --batch-li
     --steps 50 --cache-dit --cache-dit-threshold 0.25 --tag batch20-sage-fbc025
 ```
 
-## 14. 实践 5：torch.compile 正确性失败
+## 14. 实践 5：Turbo LoRA 与 torch.compile
+
+### 14.1 Turbo LoRA 现场验证
+
+SGLang cookbook 推荐 `larryvrh/MiniMax-H3-Turbo-Lora` 的固定文件 `minimax_h3_turbo_v4_step600_ema.safetensors`，请求参数为 `num_inference_steps=9`、`lora_scale=1.0`。H3 的 `num_inference_steps` 计入终止 sigma=0，因此 9 个 sigma 点对应 8 次 Transformer 前向。权重固定在仓库 revision `43a74557ac3f6539db8e0f2a959d03feb7a81480`，文件 779,849,816 bytes，SHA-256 为 `5f3a626cd72c93a8b9318d6760c510bc5092d2ab13aaba1f932c5bab07a416d3`。该文件包含 518 个原生 H3 LoRA tensor，metadata 声明 `W_eff = W + lora_B @ lora_A`，alpha=rank，无需额外 alpha。
+
+SGLang runtime 仍受 §15.5 的依赖和 checkpoint 布局阻塞，因此本次使用同一份 base checkpoint 和 diffusers 0.40.0 runner 验证 adapter 本身及等价 schedule；未启用 Sage、FBCache 或 compile。`run_h3.py` 在 transformer 加载后执行 `load_lora_weights`、scale 1.0 fuse、卸载 adapter 临时权重，正式 denoise 仍走 H3 原生 video shift=12/audio shift=3 双 schedule。
+
+| 指标 | raw 50 步 | Turbo LoRA v4 EMA | 变化 |
+|---|---:|---:|---:|
+| Transformer 前向 | 49 | 8 | −83.7% |
+| denoise | 829.9 s | **130.2 s** | **6.37×** |
+| 非 load 运行时间 | 854.1 s | **154.0 s** | **5.55×** |
+| 统一冷启动总时长 | 1269.0 s | **568.0 s** | **2.23×** |
+| 实测 load / wall | 396.9 / 1269.0 s | 355.2 / 526.5 s | Turbo 当次 page cache 较暖，wall 不作统一比较 |
+| 单步中位数 | 17064.6 ms | 17080.4 ms | 基本不变；收益来自减少前向次数 |
+| NVML 峰值 | 70.6 GiB | 74.03 GiB | +3.43 GiB |
+
+Run：`turbo_lora_v4_8eval-20260930-01`，归档于 `runs/bak/` 与 `outputs/bak/`。输出为 1344×768、124 帧、24 fps、5.175 s，带 32 kHz 双声道 AAC；`blackdetect` 未检出黑帧，音频无 NaN/Inf，接触图人工检查显示狐狸主体、雪地、树林与逐帧运动均正常。相对 raw 的成片指标为 PSNR 20.56 dB、SSIM 0.765、audio SNR −8.58 dB；构图和背景细节明显变化，音频波形差异尤其大，不能将“可播放且无黑帧”误写成与 50 步 raw 等质。当前仅完成单 prompt 功能与性能验证，仍需多 prompt 主观质量和音画同步评测。
+
+这项结果与 FBCache 0.25 的统一冷启动 581.7 s 接近，但机制和质量曲线不同：Turbo 是蒸馏 LoRA 固定到 few-step schedule，FBCache 是运行时残差复用。未验证二者叠加，cookbook 也明确不建议把蒸馏 adapter 与其他改变 denoise 的高质量策略直接堆叠，因此本报告不推导组合收益。
+
+### 14.2 torch.compile 正确性失败
 
 当前环境只验证了 Sage + FBCache 0.25 + compile 的批处理组合，没有完成“仅 compile”的独立消融，因此不能引用 compile 单项收益。
 
@@ -621,7 +643,7 @@ N=5 可变 prompt 实测中，video-1 和 video-4 的 latent 出现 NaN，decode
 
 九组主线的产物覆盖为 9/9 个 run 目录和 41/41 个 MP4。结果给出一致的瓶颈迁移：raw 由 denoise 主导；Sage+FBC 0.25 把 denoise 压到 136.9 s 后，单视频由约 397 s load 主导；N=20 按统一 cold 口径把 load 摊到 19.8 s/视频后，瓶颈重新回到约 145 s 的 GPU denoise。N→∞ 只能逼近 M≈171 s。
 
-### 15.2 辅助、失败与探索实验：14/14 全量台账
+### 15.2 辅助、失败与探索实验：15/15 全量台账
 
 以下运行不进入 9 组正式主线的加速比排序，但都是本项目已经执行并用于得出结论的实验。此前它们只散落在前文或完全没有在第 15 节出现，这是报告不完整的地方。现在统一列出，`wall` 均为原始 `run.json` 实测。
 
@@ -641,8 +663,9 @@ N=5 可变 prompt 实测中，video-1 和 video-4 的 latent 出现 NaN，decode
 | load 对照 | `--no-load-opt`，2 步 cold | 449.8 | load 396.2 s；host 中转与 `device_map=cuda` 无显著差异 | `nodevmap_steps2-20260928-152320` |
 | load 探针 | 串行 shard，2 步 cold | 449.6 | load 396.4 s；作为 parallel-load A/B 对照 | `probe_parallel_off-20260929-01` |
 | load 探针 | parallel shard，2 步 cold | 448.0 | load 395.9 s，仅改善 0.13%；输出与串行组 bit-identical | `probe_parallel_on-20260929-01` |
+| Turbo LoRA 探索 | v4 step600 EMA，9 个 sigma 点/8 次前向 | 526.5 | denoise 130.2 s；统一冷启动 568.0 s；单 prompt 无黑帧且音频有效，但与 raw 差异大，尚无多 prompt 等质结论 | `turbo_lora_v4_8eval-20260930-01` |
 
-至此，第 15 节覆盖仓库现存的全部 23 组运行：9 组正式主线和 14 组辅助/失败/探索实验。正式性能结论只取 9 组主线；其余 14 组保留证据价值并明确说明为何不混入排名。
+至此，第 15 节覆盖仓库现存的全部 24 组运行：9 组正式主线和 15 组辅助/失败/探索实验。正式性能结论只取 9 组主线；其余 15 组保留证据价值并明确说明为何不混入排名。
 
 ### 15.3 质量与正确性
 
@@ -654,7 +677,8 @@ N=5 可变 prompt 实测中，video-1 和 video-4 的 latent 出现 NaN，decode
 | SDPA+FBC 0.25 | 17.44 / 0.736 | 4.16 dB | 主要画质损失来自 FBCache |
 | Sage+FBC 0.15 | 20.05 / 0.784 | 7.11 dB | 扫描点中视频与音频指标均最好 |
 | Sage+FBC 0.20 | 17.97 / 0.759 | 2.80 dB | 相对 0.25 的视频增益有限，音频 SNR 更低 |
-| Sage+FBC 0.25 | 17.62 / 0.744 | 3.41 dB | 最快单视频配置 |
+| Sage+FBC 0.25 | 17.62 / 0.744 | 3.41 dB | 最快 50 步单视频配置 |
+| Turbo LoRA v4 EMA，8 次前向 | 20.56 / 0.765 | −8.58 dB | 视频指标高于 FBC 0.25，但音频波形偏差显著；仅单 prompt 探索 |
 | Sage+compile+FBC 0.25 | — | — | 2/5 黑帧，已归档，不可交付 |
 
 当前未设自动 PASS/FAIL 阈值，因为 PSNR/SSIM/audio SNR 的业务可接受线尚未定义；脚本支持传入阈值后作为真正门禁返回非零退出码。batch5/10/20 使用不同 prompt 集合，目前没有每条 prompt 对应的 raw 参考，因此只报告性能，不伪造跨 prompt 质量指标。
@@ -708,7 +732,7 @@ SGLang 0.5.20 wheel 内确实包含原生 `MiniMaxH3Pipeline`，不是 diffusers
 
 ### 15.6 未覆盖与下一步
 
-当前环境没有验证 Turbo LoRA、TF32、仅 compile、SDPA 下完整 FBC 阈值扫描；SGLang 已完成代码、依赖和 checkpoint 契约探针，但尚未完成 runtime 启动和生成。下一步依赖外部条件：① 为 SGLang 提供可启动的容器 daemon 或完整隔离 wheel 环境；② 准备符合 `FL2VA/` 发布契约的官方根 checkpoint；③ 完成单卡 memory/offload 启动与 I/O 观测；④ 扩充多 prompt 质量集并隔离 compile NaN；⑤ 有多卡资源时测试 Ulysses。`--parallel-load` 已实测排除，不再重复。结论不外推到 FL2VA/Ref2VA。
+当前环境已通过 diffusers 等价路径验证 SGLang cookbook 推荐的 Turbo LoRA 权重与 8-evaluation schedule，但尚未在 SGLang server 内生成，也未完成多 prompt 等质结论；TF32、仅 compile、SDPA 下完整 FBC 阈值扫描仍未验证。SGLang 已完成代码、依赖和 checkpoint 契约探针，但尚未完成 runtime 启动和生成。下一步依赖外部条件：① 为 SGLang 提供可启动的容器 daemon 或完整隔离 wheel 环境；② 准备符合 `FL2VA/` 发布契约的官方根 checkpoint；③ 完成单卡 memory/offload 启动与 I/O 观测，并在 SGLang 内复核 Turbo LoRA；④ 扩充多 prompt 质量集并隔离 compile NaN；⑤ 有多卡资源时测试 Ulysses。`--parallel-load` 已实测排除，不再重复。Turbo 结论当前仅覆盖 T2VA；其他结论不外推到 FL2VA/Ref2VA。
 
 ---
 
@@ -759,10 +783,10 @@ SGLang 0.5.20 wheel 内确实包含原生 `MiniMaxH3Pipeline`，不是 diffusers
 ### D. 已知限制
 
 1. 全部性能实验为单卡 A100-80GB；A100 没有 FP8 attention 路径，多卡未测。
-2. 所有结论仅适用于 T2VA 768p/124 帧/50 步；FL2VA/Ref2VA 未纳入。
+2. 正式主线结论仅适用于 T2VA 768p/124 帧/50 步；Turbo LoRA 仅有 9 个 sigma 点（8 次前向）的独立探索，FL2VA/Ref2VA 未纳入。
 3. FBCache 需要为 MiniMax-H3 手动注册 block 和 context；阈值影响画质且与内容相关。
 4. 视频 PSNR/SSIM 与 decoded-audio SNR 只覆盖一个狐狸 prompt，且参考与目标均为 H.264/AAC 成片；不能代替人工评价、原始 PCM/帧级 lossless 指标或业务样本集。
 5. `<1%` 的性能差异低于当前夹具的可区分范围。
 6. 非 cold run 的实测 load 受 page cache 残留影响；跨配置统一使用 `L_cold=396.7 s`，换存储需重新标定。
-7. 当前环境没有完成 Turbo LoRA、TF32、仅 compile 的独立消融。
+7. Turbo LoRA 已完成独立性能与单 prompt 成片检查，但尚未在 SGLang runtime 内复核，也没有多 prompt 主观质量与音画同步结论；TF32、仅 compile 仍未完成独立消融。
 8. compile 组合已观察到 latent NaN 与黑帧，修复前不得用于生产。
