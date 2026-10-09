@@ -1,0 +1,21 @@
+scripts/run_sglang_h3.py --tag sglang_resident50_cachedit024 --dit-resident-layers 50 --cache-dit --cache-dit-threshold 0.24 --drop-page-cache
+
+{
+  "run_id": null,
+  "tag": "sglang_resident50_cachedit024",
+  "model_path": "/mnt/workspace/MiniMax-H3-SGLang",
+  "runs_dir": "/mnt/workspace/runs",
+  "outputs_dir": "/mnt/workspace/outputs",
+  "prompt": "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+  "seed": 0,
+  "steps": 50,
+  "duration_seconds": 5.0,
+  "drop_page_cache": true,
+  "cache_dit": true,
+  "cache_dit_threshold": 0.24,
+  "attention_backend": null,
+  "compile": false,
+  "dit_resident_layers": 50.0,
+  "dit_prefetch_size": 0.0,
+  "monitor_hz": 2.0
+}

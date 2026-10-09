@@ -1,0 +1,230 @@
+{
+  "run_id": "turbolora_v4_8eval-20260930-01",
+  "argv": [
+    "scripts/run_h3.py",
+    "--prompt",
+    "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+    "--steps",
+    "9",
+    "--seed",
+    "0",
+    "--lora",
+    "explore/turbo-lora-larry/minimax_h3_turbo_v4_step600_ema.safetensors",
+    "--lora-scale",
+    "1.0",
+    "--run-id",
+    "turbolora_v4_8eval-20260930-01",
+    "--runs-dir",
+    "runs",
+    "--outputs-dir",
+    "outputs",
+    "--tag",
+    "turbo-lora-v4-8eval"
+  ],
+  "env": {
+    "hostname": "dsw-1090486-84776d7cdc-v6phm",
+    "python": "3.12.13",
+    "torch": "2.13.0+cu130",
+    "torch_cuda": "13.0",
+    "cudnn": 92000,
+    "attn_backend": null,
+    "diffusers": "0.40.0",
+    "gpu": "NVIDIA A100-SXM4-80GB",
+    "gpu_capability": "8.0",
+    "driver": "550.163.01",
+    "flash_attn": "2.8.3",
+    "sageattention": "2.2.0",
+    "triton": "3.7.1",
+    "host_mem_total_gib": 122.8,
+    "host_mem_available_gib": 117.6,
+    "host_cached_gib": 110.3
+  },
+  "started_at": "2026-09-30T14:27:13",
+  "hz": 2.0,
+  "wall_seconds": 526.5,
+  "load_seconds_total": 355.2,
+  "run_seconds_total": 154.0,
+  "overhead_seconds": 17.3,
+  "phase_seconds": {
+    "init": 0.2,
+    "load:before_encode": 0.0,
+    "run:before_encode": 0.0,
+    "free:before_encode": 0.3,
+    "load:text_encoder": 180.4,
+    "run:text_encoder": 0.8,
+    "free:text_encoder": 0.3,
+    "load:vae_encoder": 3.2,
+    "run:vae_encoder": 0.0,
+    "free:vae_encoder": 0.2,
+    "load:denoise": 167.2,
+    "load:lora": 0.9,
+    "run:denoise": 130.2,
+    "free:denoise": 6.8,
+    "load:decode": 3.5,
+    "run:decode": 19.5,
+    "free:decode": 0.3,
+    "encode_mp4": 3.5
+  },
+  "phase_io": {
+    "init": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 114.3,
+      "cached_after_gib": 114.3
+    },
+    "load:before_encode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 114.3,
+      "cached_after_gib": 114.3
+    },
+    "run:before_encode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 114.3,
+      "cached_after_gib": 114.3
+    },
+    "free:before_encode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 114.3,
+      "cached_after_gib": 114.3
+    },
+    "load:text_encoder": {
+      "read_gib": 61.18,
+      "major_faults": 254818,
+      "cached_before_gib": 114.3,
+      "cached_after_gib": 118.3
+    },
+    "run:text_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 13,
+      "cached_before_gib": 118.3,
+      "cached_after_gib": 118.0
+    },
+    "free:text_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "load:vae_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "free:vae_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "load:denoise": {
+      "read_gib": 57.41,
+      "major_faults": 238838,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.1
+    },
+    "load:lora": {
+      "read_gib": 0.0,
+      "major_faults": 13,
+      "cached_before_gib": 118.1,
+      "cached_after_gib": 117.4
+    },
+    "run:denoise": {
+      "read_gib": 0.02,
+      "major_faults": 165,
+      "cached_before_gib": 117.4,
+      "cached_after_gib": 117.5
+    },
+    "free:denoise": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.5,
+      "cached_after_gib": 117.5
+    },
+    "load:decode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.5,
+      "cached_after_gib": 117.5
+    },
+    "run:decode": {
+      "read_gib": 0.04,
+      "major_faults": 466,
+      "cached_before_gib": 117.5,
+      "cached_after_gib": 110.2
+    },
+    "free:decode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 110.2,
+      "cached_after_gib": 110.2
+    },
+    "encode_mp4": {
+      "read_gib": 0.02,
+      "major_faults": 2,
+      "cached_before_gib": 110.2,
+      "cached_after_gib": 110.3
+    }
+  },
+  "step_ms_median": 17080.4,
+  "step_ms_mean": 17093.0,
+  "steps_counted": 8,
+  "peak_torch_alloc_gib": 68.17,
+  "peak_nvml_used_gib": 74.03,
+  "peak_host_used_gib": 8.7,
+  "tag": "turbo-lora-v4-8eval",
+  "args": {
+    "prompt": "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+    "image": null,
+    "last_image": null,
+    "height": 768,
+    "width": 1344,
+    "num_frames": 124,
+    "steps": 9,
+    "seed": 0,
+    "out": "outputs/turbolora_v4_8eval-20260930-01/video.mp4",
+    "outputs_dir": "outputs",
+    "model_dir": "/mnt/workspace/MiniMax-H3",
+    "lora": "explore/turbo-lora-larry/minimax_h3_turbo_v4_step600_ema.safetensors",
+    "lora_scale": 1.0,
+    "run_id": "turbolora_v4_8eval-20260930-01",
+    "runs_dir": "runs",
+    "monitor_hz": 2.0,
+    "tag": "turbo-lora-v4-8eval",
+    "no_load_opt": false,
+    "parallel_load": false,
+    "profile": false,
+    "cache_dit": false,
+    "cache_dit_threshold": 0.15,
+    "repeat": 1,
+    "reuse_text_embeds": false,
+    "compile": false,
+    "compile_fullgraph": false,
+    "prompt_file": null,
+    "batch_limit": null,
+    "drop_page_cache": false,
+    "tf32": false,
+    "generator": null
+  },
+  "output": "/mnt/workspace/outputs/turbolora_v4_8eval-20260930-01/video.mp4",
+  "outputs": [
+    "/mnt/workspace/outputs/turbolora_v4_8eval-20260930-01/video.mp4"
+  ],
+  "renamed_from": "diffusers_turbolora_v4_8eval-20260930-01",
+  "promoted_from": "runs/bak/turbo_lora_v4_8eval-20260930-01",
+  "fps": 24,
+  "page_cache": {
+    "dropped": false,
+    "cached_at_start_gib": 114.3
+  },
+  "finished_at": "2026-09-30T14:36:00"
+}

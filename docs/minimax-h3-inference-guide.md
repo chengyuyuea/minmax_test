@@ -1,6 +1,6 @@
 # MiniMax-H3 视频生成推理：从架构原理到加速实践
 
-> **TL;DR** MiniMax-H3 是 33B 参数的多模态视频生成模型，单卡 A100-80GB 无加速冷启动单视频 1269 s（加载 397 s + 去噪 830 s）。本文先剖析其「文本编码 → VAE → 打包多模态序列 → 50 层 Transformer 去噪 → 解码」的完整数据流（Part I），再记录加速实验（Part II）。**所有加速实验只针对 T2VA（文本→视频+音频）模式**（§0 研究范围），所有数字来自同一套软硬件环境。结论：FBCache 把 49 次完整前向降到 8–13 次（denoise 3.6–5.5×，有损）；SageAttention 把注意力 kernel 加速 1.22×、单步 −9.6%，与 FBCache 按乘法叠加；**当前 diffusers 路径没有有效的单视频 cold-load 代码级加速**：现场 A/B 中 `--parallel-load` 仅使 396.4 s 降至 395.9 s（−0.13%，噪声内），瓶颈仍是磁盘 ~350 MiB/s，阶段主序批处理可将其摊薄；SGLang 0.5.20 已确认包含原生 H3 pipeline，但当前本地 checkpoint 布局与其发布契约不兼容，完整 runtime 也必须隔离安装后才能启动验证；torch.compile 与 Sage+FBCache 叠加在可变 prompt 下出现 2/5 黑帧，**未通过正确性验证**。Sage+FBCache 0.25：单视频冷启动 570 s（2.23×），批处理 N=20 每视频 191 s（6.64×），边际极限 ~171 s/视频。
+> **TL;DR** 全部正式实验均为单卡 A100-80GB、T2VA、1344×768、124 帧、24 fps、seed 0。标准 diffusers 与 SGLang 使用 50 个 sigma 点（49 次 DiT 前向）；diffusers Turbo LoRA 使用 9 个 sigma 点（8 次前向），单独比较。diffusers 最快 50-sigma 单视频为 SageAttention + FBCache 0.25：569.5 s；Sage + Turbo LoRA 为 557.7 s，但采样口径和质量特性不同。SGLang 全部 52 个 block 常驻 HBM 后，50-sigma raw 从 5147.7 s 降至 1148.8 s且输出无损；再加 Cache-DiT 0.24 为 651.5 s（有损）。
 
 ## 0. 阅读指南
 
@@ -16,7 +16,7 @@
 
 ### 研究范围：仅 T2VA
 
-H3-Base 支持 T2VA / FL2VA / Ref2VA 三种任务模式（§1），但**本文 Part II 的全部加速实验、耗时和质量数字都只在 T2VA 模式下测得**（768p，1344×768，124 帧，24 fps，50 步）。另外两种模式的状态如下：
+H3-Base 支持 T2VA / FL2VA / Ref2VA 三种任务模式（§1），但**本文 Part II 的全部正式加速实验都只在 T2VA 模式下测得**，输出统一为 1344×768、124 帧、24 fps。标准 diffusers 与 SGLang 使用 50 个 sigma 点（49 次 DiT 前向）；Turbo LoRA 使用 9 个 sigma 点（8 次前向）。另外两种模式的状态如下：
 
 | 模式 | 做过什么 | 未做什么 |
 |---|---|---|
@@ -32,7 +32,7 @@ H3-Base 支持 T2VA / FL2VA / Ref2VA 三种任务模式（§1），但**本文 P
 
 ### 实验环境摘要
 
-本文只采用当前统一环境的结果；早期其他软件栈下的数字不再进入性能表，也不用于推导。所有新增实验均使用相同硬件、软件、分辨率、帧数、步数、prompt 和 seed。
+本文只采用当前统一环境的结果；早期其他软件栈下的数字不再进入性能表，也不用于推导。正式实验使用相同硬件、软件、分辨率、帧数、prompt 和 seed；采样步数分为标准 50-sigma 与 Turbo 9-sigma 两种口径，表格中必须显式标注。
 
 | 项 | 统一环境 | 来源 |
 |---|---|---|
@@ -54,14 +54,16 @@ H3-Base 支持 T2VA / FL2VA / Ref2VA 三种任务模式（§1），但**本文 P
 | `batch<N>` | 阶段主序批处理 N 个不同 prompt（§13） | `batch20` |
 | `fl2va` | FL2VA 模式 | `fl2va` |
 | `sage` | SageAttention 后端（§12） | `sage` |
-| `fbcache<ttt>` | FBCache，阈值 ×100 补三位（§11） | `fbcache025` = 0.25 |
+| `fbcache<ttt>` | diffusers FBCache，阈值 ×100 补三位（§11） | `fbcache025` = 0.25 |
+| `turbolora_v4_8eval` | diffusers Turbo LoRA v4，9 个 sigma 点/8 次前向（§14） | `turbolora_v4_8eval` |
+| `sglang_*` | SGLang 后端；`cachedit` 与 diffusers `fbcache` 分名 | `sglang_resident50_cachedit024` |
 | `compile` / `tf32` / `nodevmap` | torch.compile / TF32 / 关闭 device_map 直落 | `compile` |
 | `steps<S>` | 步数不是 50（多为 profile 或加载标定） | `steps2` |
 | `repeat<R>` / `reuse` | 同进程重复 R 次 / 复用文本嵌入（仅作测量手段，不是加速策略） | `repeat2_reuse` |
 
 没有任何手段时为 `raw`。例：`batch20_sage_fbcache025-20260928-114735` = 20 条不同 prompt 批处理 + Sage + FBCache 0.25。`--drop-page-cache`（冷启动）是测量条件而非方法，不进入名字，记录在 `run.json.page_cache.dropped`。早期手动编号（如 `-b1`、`-c1`、`-s1`，分别是第 1 次批处理 / 标定 / sage-only 试跑）已按此规则统一重命名，旧 ID 保留在 `run.json.renamed_from`。
 
-`runs/` 与 `outputs/` 根目录只保留统一环境下可交付的 9 组主线结果；旧环境、非 50 步 profile/加载标定、repeat/reuse 噪声测量、单变量诊断和正确性失败结果均保留原目录名移入各自 `bak/`。归档只改变目录层级，不删除证据。
+`runs/` 与 `outputs/` 根目录按两类框架保留可交付主线：diffusers（含标准 50-sigma 与 Turbo 9-sigma）和 SGLang（50-sigma）。旧环境、profile/加载标定、repeat/reuse 噪声测量、smoke、失败结果及短程探针均成对移入各自 `bak/`。归档只改变目录层级，不删除证据。
 
 ---
 
@@ -451,25 +453,51 @@ Run：`steps2-20260928-202235`（**实测**）。表中 `Command Buffer Full` �
 2. **denoise 计算受限**：SM 利用率接近 100%，单步约 17 s。
 3. **瓶颈会迁移**：压缩 denoise 后，单视频由 load 主导；批处理摊薄 load 后，denoise 再次成为主瓶颈。
 
-## 9. 加速策略全景
+## 9. 加速策略与互通边界
 
-| 作用阶段 | 方法 | 当前状态 | 本机结论 |
+### 9.1 正式实验统一口径
+
+先固定比较条件，再讨论加速结果：
+
+| 项目 | diffusers 标准路径 | diffusers Turbo LoRA | SGLang |
 |---|---|---|---|
-| load | `HF_ENABLE_PARALLEL_LOADING` | 已验证无有效收益（§10） | 396.4 → 395.9 s（−0.13%，噪声内） |
-| load | 阶段主序批处理 | 已验证（§13） | 不缩短一次加载；N=20 将 396.7 s 摊为 19.8 s/视频 |
-| denoise / 前向次数 | FBCache | 已验证（§11） | 阈值 0.15/0.20/0.25 分别约 13/11/8 次完整前向 |
-| denoise / 单次前向 | SageAttention | 已验证（§12） | 注意力 kernel 1.215×；单步 −9.6% |
-| denoise / 前向次数 | Turbo LoRA | 已验证（§14） | cookbook 推荐 v4 EMA：9 个 sigma 点、8 次前向；denoise 130.2 s，统一冷启动 568.0 s |
-| denoise | `torch.compile` | 组合验证失败（§14） | Sage+FBCache+compile 的 5 条输出中 2 条黑帧 |
-| denoise | TF32 | 未测 | 不写收益数字 |
-| text encode / decode / MP4 | — | 无已验证手段 | 本项目只报告实测，不虚构收益 |
-| 多卡并行 | Ulysses / Ring / TP | 单卡范围外 | 官方参考：4×H200 lossless 75.10 s；8×B300 最快 19.04 s |
+| 任务与输出 | T2VA；1344×768；124 帧；24 fps | 同左 | 同左 |
+| Prompt / seed | 狐狸统一 prompt / 0 | 同左 | 同左 |
+| 采样口径 | 50 个 sigma 点 / 49 次 DiT 前向 | 9 个 sigma 点 / 8 次 DiT 前向 | 50 个 sigma 点 / 49 次 DiT 前向 |
+| 请求规模 | 单视频；另有 N=5/10/20 阶段主序吞吐实验 | 单视频 | 单请求 |
+| 冷启动口径 | `--drop-page-cache`；比较时统一 `L_cold=396.7 s` | 纯 Turbo 使用统一 cold 推导，Sage+Turbo 为实测 cold | `--drop-page-cache`；使用实测 wrapper wall |
 
-同阶段手段必须独立消融：FBCache 相对 raw、SageAttention 相对 raw 分别测量，组合值只做乘法校验；批处理作用于 load，可与 denoise 优化直接组合。
+因此，标准 diffusers 与 SGLang 可以按端到端 cold wall 比较；Turbo LoRA 改变了采样 schedule，必须显式标为 9-sigma/8-forward，不能与 50-sigma 配置当作同一质量口径。batch 结果衡量吞吐，也不与单请求延迟混排。
+
+### 9.2 两类加速手段
+
+| 分类 | 加速手段 | 作用 | 本机状态 | 详细结果 |
+|---|---|---|---|---|
+| **diffusers 原生加速** | SageAttention | 缩短单次 attention 计算 | 单步 −9.6% | §12 |
+| | FBCache | 跳过部分完整 DiT 前向 | 阈值 0.25 约等效 8 次完整前向，有损 | §11 |
+| | Turbo LoRA | 使用 9-sigma/8-forward 蒸馏采样 | denoise 130.2 s | §14 |
+| | Sage + Turbo LoRA | 8 次前向 × 单步加速 | denoise 118.2 s | §14 |
+| | 阶段主序批处理 | 多 prompt 共用一次组件加载 | N=20 为 191.1 s/视频 | §13 |
+| | `torch.compile` | 编译 Transformer block | 组合测试出现 2/5 黑帧，不采用 | §14.2 |
+| **SGLang 加速** | DiT 常驻 HBM | 消除每个 denoise step 的权重流式读取 | 5147.7 → 1148.8 s，无损 | §15.3 |
+| | Cache-DiT | 以残差门控跳过 block 计算 | 常驻后 651.5 s，有损 | §15.3 |
+
+Turbo LoRA 归入 diffusers 原生加速。本项目通过 `run_h3.py --lora` 加载权重并用 `fuse_lora()` 融合，配套 `--steps 9 --lora-scale 1.0`。Sage 与 Turbo 已验证可组合；Turbo 不与 FBCache/Cache-DiT 叠加。
+
+### 9.3 互通边界
+
+| 问题 | 结论 | 原因 |
+|---|---|---|
+| SageAttention 能否用于 SGLang H3？ | 不能 | 当前 SGLang H3 DiT 未暴露可切换 attention layer |
+| FBCache 与 Cache-DiT 能否互换？ | 不能 | 前者挂在 diffusers Module hooks，后者集成在 SGLang pipeline stage |
+| SGLang 的 DiT 常驻能否用于 diffusers？ | 不需要照搬 | diffusers denoise 阶段已整体持有 Transformer；SGLang 默认采用 layerwise offload |
+| 两类结果能否直接比较？ | 仅比较同媒体、同采样口径的端到端 cold wall | 两边内部阶段与加载生命周期不同 |
+
+根本原因是两套框架对模型的封装层不同：diffusers 通过 `torch.nn.Module`、hooks 和环境变量注入；SGLang 通过自己的 pipeline stage、loader 和 ServerArgs 注入。后文只在各自框架内部讨论实现细节。
 
 ## 10. 实践 1：加载阶段——并行加载现场 A/B
 
-T2VA 冷启动需依次读取约 134 GiB 权重，L_cold = 396.7 s。除原有 `device_map` 对照外，本次直接执行了 `--parallel-load` 探针。两组均使用同一 prompt/seed、`--steps 2`、`--drop-page-cache`，因此都完整加载 text encoder、VAE、transformer 和 decode VAE，但只执行 1 次 Transformer forward；产物直接写入 `runs/bak/` 与 `outputs/bak/`，不进入 9 组主线。
+T2VA 冷启动需依次读取约 134 GiB 权重，L_cold = 396.7 s。除原有 `device_map` 对照外，本次直接执行了 `--parallel-load` 探针。两组均使用同一 prompt/seed、`--steps 2`、`--drop-page-cache`，因此都完整加载 text encoder、VAE、transformer 和 decode VAE，但只执行 1 次 Transformer forward；产物直接写入 `runs/bak/` 与 `outputs/bak/`，不进入 diffusers 9 组正式矩阵。
 
 | 配置 | text_encoder | VAE | transformer | decode VAE | load 合计 | 相对串行 | run ID |
 |---|---:|---:|---:|---:|---:|---:|---|
@@ -479,7 +507,7 @@ T2VA 冷启动需依次读取约 134 GiB 权重，L_cold = 396.7 s。除原有 `
 
 并行开关通过脚本在导入 diffusers 前设置 `HF_ENABLE_PARALLEL_LOADING=1`，实验组确实记录了 `args.parallel_load=true`。串行/并行分别读取 134.18/134.14 GiB，主要阶段 major faults 分别约 55.24/55.17 万次；两份 MP4 的 SHA-256 均为 `3b1de08c4452ca69cd3ec9e7fff8038140d0db9cb5a9ed6809b135e914c99ad0`。因此结果既没有质量或执行路径变化，也没有超过 §7.3 中 1% 的可区分阈值。
 
-**实测结论：`device_map` 和 Hugging Face 并行分片加载在当前 cloud disk 上都无有效收益。** 约 350 MiB/s 的存储读取才是瓶颈，增加 shard worker 无法提高总带宽。当前唯一已验证有效的通用策略仍是 §13 的阶段主序批处理：它不缩短一次加载，而是让不同 prompt 分摊 L_cold。若要降低绝对 cold load，下一步必须改变存储带宽、读取字节量或服务生命周期，详细边界见 §15.4。
+**实测结论：`device_map` 和 Hugging Face 并行分片加载在当前 cloud disk 上都无有效收益。** 约 350 MiB/s 的存储读取才是瓶颈，增加 shard worker 无法提高总带宽。当前唯一已验证有效的通用策略仍是 §13 的阶段主序批处理：它不缩短一次加载，而是让不同 prompt 分摊 L_cold。若要降低绝对 cold load，下一步必须改变存储带宽、读取字节量或服务生命周期，详细边界见 §10。
 
 ## 11. 实践 2：FBCache 残差缓存
 
@@ -580,25 +608,43 @@ python3 scripts/run_h3.py --prompt-file scripts/batch_prompts_20.json --batch-li
 
 ## 14. 实践 5：Turbo LoRA 与 torch.compile
 
-### 14.1 Turbo LoRA 现场验证
+### 14.1 Turbo LoRA 原理、正确用法与现场验证
 
-SGLang cookbook 推荐 `larryvrh/MiniMax-H3-Turbo-Lora` 的固定文件 `minimax_h3_turbo_v4_step600_ema.safetensors`，请求参数为 `num_inference_steps=9`、`lora_scale=1.0`。H3 的 `num_inference_steps` 计入终止 sigma=0，因此 9 个 sigma 点对应 8 次 Transformer 前向。权重固定在仓库 revision `43a74557ac3f6539db8e0f2a959d03feb7a81480`，文件 779,849,816 bytes，SHA-256 为 `5f3a626cd72c93a8b9318d6760c510bc5092d2ab13aaba1f932c5bab07a416d3`。该文件包含 518 个原生 H3 LoRA tensor，metadata 声明 `W_eff = W + lora_B @ lora_A`，alpha=rank，无需额外 alpha。
+Turbo LoRA 不是“普通风格 LoRA + 随意减少步数”，而是针对 few-step flow schedule 训练的**时间步蒸馏适配器**。它以低秩增量 `ΔW = B @ A` 修改 H3 DiT 的 attention、MLP、AdaLN 等投影；该权重声明 alpha=rank，所以 scale 1.0 时 `W_eff = W + B @ A`，无需额外 alpha。蒸馏训练让模型在稀疏 sigma 网格上一次跨过更大的去噪区间，因此主要收益来自把 49 次 DiT 前向降为 8 次，而不是让单次前向本身更快。adapter、步数、sigma/flow schedule 和 scale 是一个不可拆分的推理契约：只加载 LoRA 却继续 50 点 schedule，或只把 base 模型改成 8 次前向，都不是该 Turbo 配方。
 
-SGLang runtime 仍受 §15.5 的依赖和 checkpoint 布局阻塞，因此本次使用同一份 base checkpoint 和 diffusers 0.40.0 runner 验证 adapter 本身及等价 schedule；未启用 Sage、FBCache 或 compile。`run_h3.py` 在 transformer 加载后执行 `load_lora_weights`、scale 1.0 fuse、卸载 adapter 临时权重，正式 denoise 仍走 H3 原生 video shift=12/audio shift=3 双 schedule。
+SGLang cookbook 推荐 `larryvrh/MiniMax-H3-Turbo-Lora` 的固定文件 `minimax_h3_turbo_v4_step600_ema.safetensors`，请求参数为 `num_inference_steps=9`、`lora_scale=1.0`。H3 的字段计入终止 sigma=0，因此 9 个 sigma 点对应 8 次 Transformer 前向；发布者将 4–8 次前向列为有效范围，v4 在 6–8 次时质量最好，超过 8 次通常不再受益。权重固定在仓库 revision `43a74557ac3f6539db8e0f2a959d03feb7a81480`，文件 779,849,816 bytes，本地文件 SHA-256 为 `5f3a626cd72c93a8b9318d6760c510bc5092d2ab13aaba1f932c5bab07a416d3`。该文件包含 518 个原生 H3 LoRA tensor，不需要 trigger phrase。
 
-| 指标 | raw 50 步 | Turbo LoRA v4 EMA | 变化 |
-|---|---:|---:|---:|
-| Transformer 前向 | 49 | 8 | −83.7% |
-| denoise | 829.9 s | **130.2 s** | **6.37×** |
-| 非 load 运行时间 | 854.1 s | **154.0 s** | **5.55×** |
-| 统一冷启动总时长 | 1269.0 s | **568.0 s** | **2.23×** |
-| 实测 load / wall | 396.9 / 1269.0 s | 355.2 / 526.5 s | Turbo 当次 page cache 较暖，wall 不作统一比较 |
-| 单步中位数 | 17064.6 ms | 17080.4 ms | 基本不变；收益来自减少前向次数 |
-| NVML 峰值 | 70.6 GiB | 74.03 GiB | +3.43 GiB |
+本项目使用同一份 base checkpoint 和 diffusers 0.40.0 runner，未启用 Sage、FBCache 或 compile。`run_h3.py` 在 transformer 加载后依次执行 `load_lora_weights()`、`fuse_lora(lora_scale=1.0)`、`unload_lora_weights()`：先读入低秩 A/B，再把增量融合进当前 transformer，最后只卸载 adapter 容器，不撤销已经融合的增量。正式 denoise 继续使用 H3 原生 video shift=12/audio shift=3 双 schedule。命令为：
 
-Run：`turbo_lora_v4_8eval-20260930-01`，归档于 `runs/bak/` 与 `outputs/bak/`。输出为 1344×768、124 帧、24 fps、5.175 s，带 32 kHz 双声道 AAC；`blackdetect` 未检出黑帧，音频无 NaN/Inf，接触图人工检查显示狐狸主体、雪地、树林与逐帧运动均正常。相对 raw 的成片指标为 PSNR 20.56 dB、SSIM 0.765、audio SNR −8.58 dB；构图和背景细节明显变化，音频波形差异尤其大，不能将“可播放且无黑帧”误写成与 50 步 raw 等质。当前仅完成单 prompt 功能与性能验证，仍需多 prompt 主观质量和音画同步评测。
+```bash
+python3 scripts/run_h3.py --steps 9 --seed 0 \
+  --lora explore/turbo-lora-larry/minimax_h3_turbo_v4_step600_ema.safetensors \
+  --lora-scale 1.0 \
+  --run-id turbolora_v4_8eval-20260930-01 \
+  --runs-dir runs --outputs-dir outputs --tag turbo-lora-v4-8eval
+```
 
-这项结果与 FBCache 0.25 的统一冷启动 581.7 s 接近，但机制和质量曲线不同：Turbo 是蒸馏 LoRA 固定到 few-step schedule，FBCache 是运行时残差复用。未验证二者叠加，cookbook 也明确不建议把蒸馏 adapter 与其他改变 denoise 的高质量策略直接堆叠，因此本报告不推导组合收益。
+��是 diffusers Turbo LoRA 主线实测，不是 SGLang Turbo LoRA；后者官方接口为 `--lora-path/--lora-weight-name/--lora-scale/--lora-merge-mode auto`，本机尚未实跑。
+
+| 指标 | raw 50 步 | Turbo LoRA v4 EMA | Sage + Turbo LoRA v4 | 变化（Turbo → Sage+Turbo） |
+|---|---:|---:|---:|---:|
+| Transformer 前向 | 49 | 8 | 8 | — |
+| denoise | 829.9 s | **130.2 s** | **118.2 s** | −9.2% |
+| 非 load 运行时间 | 854.1 s | **154.0 s** | **142.3 s** | −7.6% |
+| 统一冷启动总时长 | 1269.0 s | **568.0 s** | **557.7 s** | −1.8% |
+| 实测 load / wall | 396.9 / 1269.0 s | 355.2 / 526.5 s | 398.0 / 559.0 s (cold) | Sage+Turbo 为实测 cold |
+| 单步中位数 | 17064.6 ms | 17080.4 ms | **15397.1 ms** | **−9.9%** |
+| NVML 峰值 | 70.6 GiB | 74.03 GiB | 71.15 GiB | −2.88 GiB |
+
+Run：
+- `turbolora_v4_8eval-20260930-01`（纯 Turbo）
+- `sage_turbolora_v4_8eval-20261008-160115`（Sage + Turbo，cold）
+
+两组均为独立主线成对保存在 `runs/` 与 `outputs/`。输出为 1344×768、124 帧、24 fps、5.175 s，带 32 kHz 双声道 AAC；`blackdetect` 未检出黑帧，音频无 NaN/Inf。
+
+Sage + Turbo 相对纯 Turbo 的直接比较为 PSNR 28.28 dB、SSIM 0.924、audio SNR 14.55 dB，确认 SageAttention 的 INT8 数值漂移对 Turbo 输出的影响非常小。两组相对 raw 的成片指标均相近：纯 Turbo PSNR 20.56 / SSIM 0.765 / audio SNR −8.58 dB；Sage+Turbo PSNR 20.08 / SSIM 0.756 / audio SNR −8.57 dB。构图和背景细节明显变化，音频波形差异尤其大，不能将"可播放且无黑帧"误写成与 50 步 raw 等质。当前仅完成单 prompt 功能与性能验证，仍需多 prompt 主观质量和音画同步评测。
+
+这项结果与 FBCache 0.25 的统一冷启动 581.7 s 接近，但机制和质量曲线不同：Turbo 是蒸馏 LoRA 固定到 few-step schedule，FBCache 是运行时残差复用，SageAttention 缩短单次 attention kernel。Sage 与 Turbo 的叠加收益近乎乘法（步数减少 × 单步加速），且对输出质量几乎无额外损失。cookbook 明确不建议把蒸馏 adapter 与 FBCache/Cache-DiT 等改变 denoise 跳步策略直接堆叠，但 Sage 仅影响 kernel 精度、不改变调度逻辑，因此是安全的组合。
 
 ### 14.2 torch.compile 正确性失败
 
@@ -608,11 +654,11 @@ N=5 可变 prompt 实测中，video-1 和 video-4 的 latent 出现 NaN，decode
 
 黑帧两条也恰好 denoise 最快，符合“NaN 使 FBCache 比较恒为 False、随后持续跳过 block”的现象，但 NaN 来源尚未隔离，可能涉及动态形状、FBCache hook 状态或 Sage 与 Inductor 的交互。在定位并加入 `torch.isfinite` fail-fast 前，compile 不进入推荐配置，失败行也不计为性能收益。
 
-## 15. 综合对比与完整实验台账
+## 15. 综合结果
 
-### 15.1 正式主线结果：9/9 全量覆盖（T2VA 768p/124 帧/50 步）
+### 15.1 diffusers 50-sigma 正式矩阵
 
-正式主线定义为：当前统一环境、已完成运行和正确性检查、参数口径可用于最终比较的 50 步 T2VA 实验。`runs/` 与 `outputs/` 根目录共 9 组，下面按 6 组单视频消融和 3 组多 prompt 吞吐实验逐项列出，没有省略阈值扫描点或 batch 规模。
+本节只列标准 diffusers 50-sigma T2VA 矩阵：6 组单视频消融和 3 组多 prompt 吞吐实验。Turbo LoRA 的 9-sigma/8-forward 结果单列于 §14；SGLang 的 4 组 50-sigma 正式结果单列于 §15.3。
 
 为避免再次把“实测结果”和“统一口径推导”混在一起，表中同时保留：
 
@@ -641,33 +687,9 @@ N=5 可变 prompt 实测中，video-1 和 video-4 的 latent 出现 NaN，decode
 | 10 | 266.4 | **1975.8** | 197.6 | 39.7 | 0.2 | 144.2 | 17.8 | 3.1 | 5.6 | 170.9 | **210.6** | 6.03× | 73.7 GiB | 10/10；无逐 prompt raw | `batch10_sage_fbcache025-20260928-111414` |
 | 20 | 295.5 | **3721.3** | 186.1 | 19.8 | 0.1 | 144.8 | 17.7 | 3.3 | 5.3 | 171.3 | **191.1** | 6.64× | 73.7 GiB | 20/20；无逐 prompt raw | `batch20_sage_fbcache025-20260928-114735` |
 
-九组主线的产物覆盖为 9/9 个 run 目录和 41/41 个 MP4。结果给出一致的瓶颈迁移：raw 由 denoise 主导；Sage+FBC 0.25 把 denoise 压到 136.9 s 后，单视频由约 397 s load 主导；N=20 按统一 cold 口径把 load 摊到 19.8 s/视频后，瓶颈重新回到约 145 s 的 GPU denoise。N→∞ 只能逼近 M≈171 s。
+diffusers 九组正式矩阵的产物覆盖为 9/9 个 run 目录和 41/41 个 MP4。结果给出一致的瓶颈迁移：raw 由 denoise 主导；Sage+FBC 0.25 把 denoise 压到 136.9 s 后，单视频由约 397 s load 主导；N=20 按统一 cold 口径把 load 摊到 19.8 s/视频后，瓶颈重新回到约 145 s 的 GPU denoise。N→∞ 只能逼近 M≈171 s。
 
-### 15.2 辅助、失败与探索实验：15/15 全量台账
-
-以下运行不进入 9 组正式主线的加速比排序，但都是本项目已经执行并用于得出结论的实验。此前它们只散落在前文或完全没有在第 15 节出现，这是报告不完整的地方。现在统一列出，`wall` 均为原始 `run.json` 实测。
-
-| 类型 | 实验/口径 | 实测 wall | 关键结果与归档原因 | run ID |
-|---|---|---:|---|---|
-| 历史基线 | T2VA raw，50 步 | 1362.6 | denoise 829.0 s；load 受旧 page cache 状态影响，不替代正式 cold raw | `raw-20260920-231616` |
-| 功能验证 | FL2VA raw，50 步 | 1308.8 | denoise 977.1 s，step 中位数 20091.7 ms；证明 FL2VA 路径可运行，但不属于 T2VA 对比矩阵 | `fl2va_raw-20260920-234316` |
-| 历史 batch | Sage+FBC 0.25，N=3 | 817.6 | 三条输出完成；使用旧 prompt 文件和非统一 cold load，保留作阶段主序早期验证 | `batch3_sage_fbcache025-20260920-213701` |
-| 重复性 | SDPA+FBC 0.25，repeat=2 + reuse text | 579.1 | denoise 151.3/151.2 s，两份输出 bit-identical；用于证明重复稳定性 | `fbcache025_repeat2_reuse-20260920-181316` |
-| 重复性 | Sage+FBC 0.25，repeat=2 + reuse text | 500.5 | denoise 137.3/136.7 s，两份输出 bit-identical；用于证明组合稳定性 | `sage_fbcache025_repeat2_reuse-20260920-211122` |
-| 正确性失败 | Sage+FBC 0.25+compile，N=5 | 1122.6 | 5 条中 2 条 latent NaN/黑帧；结果不可交付，不计性能收益 | `batch5_sage_fbcache025_compile-20260928-125513` |
-| 早期 smoke | SDPA，2 步 | 309.3 | 单次 transformer 前向 17.2 s；早期加载口径和峰值显存异常，不作正式比较 | `steps2-20260920-172251` |
-| profiler | SDPA，2 步 | 209.6 | denoise 17.4 s；Self CUDA 17.094 s，用于 kernel 归因 | `steps2-20260928-202235` |
-| profiler | Sage，2 步 | 268.6 | denoise 15.9 s；Self CUDA 15.460 s，用于 Sage kernel 归因 | `sage_steps2-20260928-202608` |
-| load 标定 | SDPA，2 步，repeat=2，第 1 轮 cold | 508.0 | 第 1 轮 load 396.6 s；用于确认 cold-load 重复性 | `steps2_repeat2_reuse-20260928-145944` |
-| load 标定 | SDPA，2 步，repeat=2，第 1 轮 cold | 507.6 | 第 1 轮 load 396.8 s；与上一轮仅差 0.05% | `steps2_repeat2_reuse-20260928-150823` |
-| load 对照 | `--no-load-opt`，2 步 cold | 449.8 | load 396.2 s；host 中转与 `device_map=cuda` 无显著差异 | `nodevmap_steps2-20260928-152320` |
-| load 探针 | 串行 shard，2 步 cold | 449.6 | load 396.4 s；作为 parallel-load A/B 对照 | `probe_parallel_off-20260929-01` |
-| load 探针 | parallel shard，2 步 cold | 448.0 | load 395.9 s，仅改善 0.13%；输出与串行组 bit-identical | `probe_parallel_on-20260929-01` |
-| Turbo LoRA 探索 | v4 step600 EMA，9 个 sigma 点/8 次前向 | 526.5 | denoise 130.2 s；统一冷启动 568.0 s；单 prompt 无黑帧且音频有效，但与 raw 差异大，尚无多 prompt 等质结论 | `turbo_lora_v4_8eval-20260930-01` |
-
-至此，第 15 节覆盖仓库现存的全部 24 组运行：9 组正式主线和 15 组辅助/失败/探索实验。正式性能结论只取 9 组主线；其余 15 组保留证据价值并明确说明为何不混入排名。
-
-### 15.3 质量与正确性
+### 15.2 质量与正确性
 
 以下均相对同 prompt/seed 的 raw H.264/AAC 成片比较；视频不是 lossless 源，audio SNR 是两份 AAC 解码为 32 kHz 双声道浮点 PCM 后的逐样本波形 SNR。完整机器可读结果保存在 `logs/quality-fox-vs-raw.json`。
 
@@ -678,61 +700,85 @@ N=5 可变 prompt 实测中，video-1 和 video-4 的 latent 出现 NaN，decode
 | Sage+FBC 0.15 | 20.05 / 0.784 | 7.11 dB | 扫描点中视频与音频指标均最好 |
 | Sage+FBC 0.20 | 17.97 / 0.759 | 2.80 dB | 相对 0.25 的视频增益有限，音频 SNR 更低 |
 | Sage+FBC 0.25 | 17.62 / 0.744 | 3.41 dB | 最快 50 步单视频配置 |
-| Turbo LoRA v4 EMA，8 次前向 | 20.56 / 0.765 | −8.58 dB | 视频指标高于 FBC 0.25，但音频波形偏差显著；仅单 prompt 探索 |
+| Turbo LoRA v4 EMA，8 次前向 | 20.56 / 0.765 | −8.58 dB | 视频指标高于 FBC 0.25，但音频波形偏差显著；主线目前仅验证单 prompt |
+| Sage + Turbo LoRA v4，8 次前向 | 20.08 / 0.756 | −8.57 dB | 与纯 Turbo 相比 PSNR 28.28 / SSIM 0.924 / SNR 14.55，Sage 引入的额外差异很小 |
 | Sage+compile+FBC 0.25 | — | — | 2/5 黑帧，已归档，不可交付 |
 
 当前未设自动 PASS/FAIL 阈值，因为 PSNR/SSIM/audio SNR 的业务可接受线尚未定义；脚本支持传入阈值后作为真正门禁返回非零退出码。batch5/10/20 使用不同 prompt 集合，目前没有每条 prompt 对应的 raw 参考，因此只报告性能，不伪造跨 prompt 质量指标。
 
-### 15.4 Load 阶段现场探索结果
+### 15.3 SGLang 单卡正式实验
 
-#### 已回答的问题
+SGLang 正式结果使用 `scripts/run_sglang_h3.py` 调用 `sglang==0.5.20` 的 `MiniMaxH3Pipeline`。四组实验只改变 DiT 是否常驻 HBM、是否启用 Cache-DiT，其余夹具完全一致：
 
-- **线程级并行不能加速当前 cold load。** §10 的现场 A/B 为 396.4 → 395.9 s（−0.13%），低于 1% 噪声阈值；text encoder 与 transformer 各自也只变化 0.1%–0.2%。
-- **397 s 不是模型结构下限，但已接近当前 cloud disk 的读取下限。** 串行和并行都读取约 134.1 GiB、产生约 55 万次 major fault，有效吞吐仍约 350 MiB/s。
-- **现有软件开关已基本排除。** `device_map` 与 host 中转差 0.1%，并行 shard worker 差 0.13%；两者都没有减少读取字节，也没有提高底层存储带宽。
+| 配置项 | 固定值 |
+|---|---|
+| GPU | 1× NVIDIA A100-SXM4-80GB |
+| 任务 | T2VA，单 prompt、单请求 |
+| 输出 | **1344×768，124 帧，24 fps，5.175 s，H.264 + AAC** |
+| 采样 | **50 个 sigma 点，49 次 DiT 前向** |
+| Prompt / seed | 狐狸统一 prompt / 0 |
+| 冷启动 | 四组均在启动前执行 page-cache eviction |
+| 运行模式 | `performance_mode=memory`；layerwise offload 或 52/52 block 常驻 |
 
-| 已探索手段 | 证据 | 结论 |
-|---|---|---|
-| `device_map=cuda` vs host 中转 | 396.6 vs 396.2 s | H2D 不是主瓶颈 |
-| `HF_ENABLE_PARALLEL_LOADING=1` | 396.4 vs 395.9 s；输出 SHA-256 相同 | shard 并发不能突破当前磁盘吞吐 |
-| page cache 暖态 | 134.1 GiB 工作集大于约 112 GiB 可用 cache | 不能稳定容纳全部组件，不能作为 cold-start 方案 |
-| 阶段主序批处理 | N=20 时 L/N=19.8 s/视频 | 有效提升吞吐，但不缩短首次启动 |
+本地 wrapper 只负责固定上述参数、监控和保存实验产物；checkpoint 兼容处理不改变模型权重或采样参数。
 
-仍有价值的方向已经不是“小改一个 loader 参数”，而是改变物理约束：更快本地 NVMe/更高规格云盘；使用预量化 checkpoint 减少读取字节；或改成长驻服务/阶段队列，只支付一次加载成本。顺序预读、direct I/O 与 checkpoint 重打包只有在实测能把底层吞吐推过约 350 MiB/s 时才值得继续；单纯提前填 page cache 只会转移计时位置。跨阶段预取的上限也很低，因为 text encode 仅 0.8 s、T2VA VAE encode 近乎 0，无法隐藏约 180 s 的下一组件读取。
+四个正式运行命令与参数保存在对应 `cmd.txt`；`--dit-resident-layers 50` 会使 2 层 Token Refiner 和 50 层主 DiT 全部常驻（52/52，约 60.12 GiB）。13/26/39/52 层的短程选择探针已移至附录 C，不进入正式结果。
 
-因此对当前机器的结论是：**继续调整 diffusers 分片线程没有意义；若目标是单次 cold start，下一次有效实验应直接更换存储介质或预量化权重；若目标是在线吞吐，应转向常驻 runtime。** 本次两个 probe 已归档，不进入主线结果。
+#### 正式性能结果
 
-### 15.5 SGLang 现场接入探索
+| 指标 | 流式 raw | 流式 Cache-DiT 0.24 | resident50 raw | resident50 + Cache-DiT 0.24 |
+|---|---:|---:|---:|---:|
+| 输出规格 | 1344×768 / 124 帧 / 24 fps | 同左 | 同左 | 同左 |
+| sigma 点 / DiT 前向 | 50 / 49 | 50 / 49 | 50 / 49 | 50 / 49 |
+| run ID | `sglang_raw-20261007-235200` | `sglang_cachedit024-20261008-011901` | `sglang_resident50-20261008-120139` | `sglang_resident50_cachedit024-20261008-122639` |
+| pipeline load / startup | 289.501 s | 287.701 s | 281.783 s | 282.227 s |
+| text encode | 5.234 s | 5.221 s | 5.129 s | 5.457 s |
+| denoise | 4824.625 s | 1480.800 s | **833.306 s** | **335.677 s** |
+| decode | 25.076 s | 24.541 s | 24.525 s | 24.468 s |
+| SGLang request | 4855.122 s | 1510.747 s | **863.138 s** | **365.781 s** |
+| wrapper wall | 5147.7 s | 1802.6 s | **1148.8 s** | **651.5 s** |
+| 子进程读取量 | 1728.35 GiB | 586.20 GiB | **116.01 GiB** | **116.00 GiB** |
+| peak NVML HBM | 15.10 GiB | 17.36 GiB | 70.42 GiB | 72.69 GiB |
 
-本次不是只阅读文档，而是对最新 PyPI `sglang==0.5.20` 做了隔离探针：主包以 `--target /mnt/workspace/.sglang-probe --no-deps` 安装，未改动 base；随后核对实际 H3 pipeline、部署策略、checkpoint 契约和完整依赖解析。Docker CLI 存在但 daemon 不可连接，因此当前实例不能直接走官方容器路径。
+流式 raw 的 49 个 denoise step 中位数为 98.416 s，单次 denoise 累计从存储读取约 1646 GiB；原因是 143.75 GiB 权重部署面对有限 host memory，大部分 DiT block 留在 checkpoint mapping，每一步均发生大量流式读取。全常驻把读取量减少 93.3%，使 wall、request、denoise 分别加速 **4.48×、5.63×、5.79×**。这证明此前 SGLang 的主要瓶颈是 layerwise-offload I/O，而不是原生 DiT 计算能力。
 
-#### 已确认可用的能力
+Cache-DiT 使用 `Fn=1, Bn=0, W=4, residual_diff_threshold=0.24, max_continuous_cached_steps=3`。全常驻后，刷新 step 约 15.2 s、命中 step 约 0.31 s、轻量判定 step 约 0.037 s；相对流式 Cache-DiT，wall、request、denoise 分别再加速 **2.77×、4.13×、4.41×**。相对流式 SGLang raw，resident50 + Cache-DiT 的端到端 wall 为 **7.90×**，但 Cache-DiT 仍是有损路径。
 
-SGLang 0.5.20 wheel 内确实包含原生 `MiniMaxH3Pipeline`，不是 diffusers fallback。它支持 T2VA/FL2VA/Ref2VA、SageAttention/稀疏 attention、Cache-DiT、TP/Ulysses/Ring/FSDP，以及 text encoder、DiT 和 VAE 的 layerwise offload。源码对 H3 的自动内存策略将整模型常驻阈值设为 120 GiB 可用 HBM；本机 A100 只有约 79 GiB，因此会进入 memory/layerwise-offload 路径，而不可能采用官方 4×H200 resident 配方。
+#### 质量与逐字节一致性
 
-#### 当前实例上的三个实际阻塞
+质量脚本对编码后的 MP4 解码比较，reference 为 SGLang raw；结果保存在各 resident run 的 `quality.json`。
 
-| 检查项 | 现场结果 | 影响 |
-|---|---|---|
-| 完整 runtime | 主包可导入并报告 0.5.20；导入 H3 pipeline 时停止在 `ModuleNotFoundError: sgl_kernel` | 仅安装主 wheel 不足以启动；完整 runtime 需要 373 MiB 的 `sglang-kernel` 及多组固定版本 CUDA 扩展 |
-| base 兼容性 | 依赖解析要求 `diffusers==0.37.0`、`transformers==5.12.1`、`flashinfer_python==0.6.18` 等，而主线是 diffusers 0.40.0、transformers 5.16.1 | 不能安装进当前 base，否则会破坏已冻结复现口径；必须使用可启动的容器或完整隔离环境 |
-| 本地 checkpoint | `/mnt/workspace/MiniMax-H3` 没有 `FL2VA/`、`video_vae/` 和 `model_index.json._minimax_h3`；SGLang 的 `--model-variant fl2va` 固定映射到 `FL2VA/`，并要求原生 `video_vae/source/model.safetensors` 契约 | 当前裁剪快照不能直接作为 SGLang `--model-path`；需准备官方根仓库布局，不能只把目录改名 |
+| target | video PSNR | video SSIM | decoded-audio SNR | SHA-256 关系 | 结论 |
+|---|---:|---:|---:|---|---|
+| `sglang_resident50-20261008-120139` | inf | 1.000000 | inf | 与 SGLang raw 完全相同 | residency 无损 |
+| `sglang_cachedit024-20261008-011901` | 20.706 dB | 0.781047 | 0.592 dB | Cache-DiT 输出 | 明显有损；单 prompt，未设门槛 |
+| `sglang_resident50_cachedit024-20261008-122639` | 20.706 dB | 0.781047 | 0.592 dB | 与上一行完全相同 | residency 未引入额外差异 |
 
-此外，122.8 GiB host RAM 也是实际约束：SGLang 的 resident loader 已有公开实测显示 DiT 会先在 CPU staging 约 58 GiB/进程；单卡虽不会发生多 rank 线性放大，但 text encoder、映射页、runtime 与 pinned buffer 仍会竞争内存。SGLang 0.5.20 提供 `--direct-gpu-weight-loading`，但它只适用于 GPU-resident DiT，与本机必须使用的 DiT layerwise offload 互斥，不能拿来解决本机 cold load。
+四条成功输出均为 H.264 1344×768、24 FPS，带 32 kHz 双声道 AAC，时长 5.175 s。resident50 raw 与流式 raw 的 MP4 SHA-256 均为 `e0549bf9a89bf20f587865b3caa80d37a6a862d85cf1dacf181a1cfbfd9d7c9d`；两条 Cache-DiT 输出均为 `0e7768f0b7ec7aafad05023077c483048fcbd29f447ddf13452843ab0ef49d10`。
 
-#### 当前结论与可执行接入方式
+#### 与 diffusers 主线综合比较
 
-**SGLang 可以引入，但当前实例还不能直接启动 H3。** 问题不在“是否有 H3 实现”，而在完整 runtime 交付、模型发布布局和单卡内存策略。后续接入必须保持为独立后端：
+跨 backend 只直接比较同机、同 prompt/seed、同媒体规格、均执行 cold page-cache eviction 的端到端总时长；SGLang 的 `pipeline startup/request` 与 diffusers 五阶段 `load/M` 定义不同，不强行对齐子阶段。diffusers 行使用 §15.1 的统一 cold `T`，SGLang 行使用实测 wrapper wall。
 
-1. 提供可工作的 Docker daemon，并使用官方 SGLang diffusion 镜像；或准备独立环境及其完整 CUDA wheel 镜像。不能覆盖当前 base。
-2. 以官方根模型 ID `MiniMaxAI/MiniMax-H3` 或 `MiniMax/MiniMax-H3` 加 `--model-variant fl2va` 准备 checkpoint；当前扁平化 T2VA 快照继续服务 diffusers 主线。
-3. 单卡首次启动使用 `--performance-mode memory --layerwise-offload-components dit,text_encoder,vae --layerwise-resident-layers video_vae=36 --enable-torch-compile false`，先验证能否完成 load；不要先启用 Sage 或 Cache-DiT。
-4. 分开记录 server startup、首个 request 和第二个 warm request，并观察每个 denoise step 是否再次产生磁盘读取。若 layerwise offload 因 122.8 GiB RAM 不足而让磁盘进入每一步，SGLang 在本机不会成为加速方案。
-5. 只有 native/lossless 路径通过后，再分别测试 Sage 与 Cache-DiT，并重新做视频和音频质量比较；不能复用 diffusers 的阈值或质量数字。
+所有行输出均为 1344×768、124 帧、24 fps；表中单独列出采样口径，避免把 Turbo 的 9-sigma 与标准 50-sigma 混为一类。
 
-### 15.6 未覆盖与下一步
+| backend / 配置 | sigma 点 / DiT 前向 | denoise | cold 总时长 | peak NVML | 质量口径 |
+|---|---:|---:|---:|---:|---|
+| diffusers raw SDPA | 50 / 49 | 829.9 s | 1269.0 s | 70.6 GiB | diffusers reference |
+| SGLang resident50 raw | 50 / 49 | 833.3 s | **1148.8 s** | 70.42 GiB | 与 SGLang raw 逐字节一致 |
+| diffusers SDPA + FBC 0.25 | 50 / 约 8 次完整前向 | 151.5 s | **581.7 s** | 72.5 GiB | 17.44 / 0.736 vs diffusers raw |
+| diffusers Sage + FBC 0.25 | 50 / 约 8 次完整前向 | 136.9 s | **569.5 s** | 72.0 GiB | 17.62 / 0.744 vs diffusers raw |
+| diffusers Turbo LoRA v4 EMA | 9 / 8 | 130.2 s | **568.0 s** | 74.03 GiB | 20.56 / 0.765；audio SNR −8.58 dB |
+| diffusers Sage + Turbo LoRA v4 | 9 / 8 | 118.2 s | **557.7 s** | 71.15 GiB | 20.08 / 0.756；audio SNR −8.57 dB |
+| SGLang resident50 + Cache-DiT 0.24 | 50 / 49 个调度 step（部分命中缓存） | 335.7 s | **651.5 s** | 72.69 GiB | 20.706 / 0.781 vs SGLang raw；audio SNR 0.592 dB |
 
-当前环境已通过 diffusers 等价路径验证 SGLang cookbook 推荐的 Turbo LoRA 权重与 8-evaluation schedule，但尚未在 SGLang server 内生成，也未完成多 prompt 等质结论；TF32、仅 compile、SDPA 下完整 FBC 阈值扫描仍未验证。SGLang 已完成代码、依赖和 checkpoint 契约探针，但尚未完成 runtime 启动和生成。下一步依赖外部条件：① 为 SGLang 提供可启动的容器 daemon 或完整隔离 wheel 环境；② 准备符合 `FL2VA/` 发布契约的官方根 checkpoint；③ 完成单卡 memory/offload 启动与 I/O 观测，并在 SGLang 内复核 Turbo LoRA；④ 扩充多 prompt 质量集并隔离 compile NaN；⑤ 有多卡资源时测试 Ulysses。`--parallel-load` 已实测排除，不再重复。Turbo 结论当前仅覆盖 T2VA；其他结论不外推到 FL2VA/Ref2VA。
+SGLang resident50 raw 的 denoise 与 diffusers raw 基本持平，端到端反而快 120.2 s（1.10×），说明充分使用 HBM 后 SGLang raw 已不再落后。当前 SGLang 最快组合仍比 diffusers FBC 0.25、Sage+FBC 0.25 和 Turbo 分别慢约 12.0%、14.4%、14.7%；但质量 reference 属于各 backend 自身 raw，这些 PSNR/SSIM 不能当成跨 backend 的绝对质量排名。
+
+### 15.4 未覆盖与下一步
+
+SGLang 流式 raw、Cache-DiT 0.24、resident50 raw 及其 Cache-DiT 组合均已完成单 prompt 正式实验，但结论不外推到 FL2VA/Ref2VA。尚未完成：SGLang 内 Turbo LoRA、不同 Cache-DiT 阈值的质量—速度曲线、仅 compile、可切换 Sage/SDPA、warm server 多请求吞吐、多 prompt 质量集，以及多卡 Ulysses/TP。
+
+当前最高价值的下一步是 warm server 多请求实验：首次请求约 101 s 的 resident materialization 和约 282 s pipeline startup 有望由后续请求摊薄，最能体现 SGLang 的服务化价值。若目标是有损快速路径，则应降低 Cache-DiT threshold 并设定明确 PSNR/SSIM/audio-SNR 门槛；若目标是继续提升无损单请求，则需优化 resident 首步物化或引入已验证的 H3 attention 后端。`--parallel-load` 已在 diffusers 主线实测排除，不再重复。
 
 ---
 
@@ -771,19 +817,48 @@ SGLang 0.5.20 wheel 内确实包含原生 `MiniMaxH3Pipeline`，不是 diffusers
 }
 ```
 
-### C. 参考链接
+### C. 辅助、失败与探索实验台账
+
+以下证据不进入正式性能排序，但保留用于复核结论。完整指标以对应 `run.json` / `perf.json` 为准。
+
+| 类型 | 实验/口径 | 实测 wall | 关键结果与归档原因 | run ID |
+|---|---|---:|---|---|
+| 历史基线 | T2VA raw，50 sigma | 1362.6 | 旧 page-cache 口径，不替代正式 cold raw | `raw-20260920-231616` |
+| 功能验证 | FL2VA raw，50 sigma | 1308.8 | 不属于 T2VA 对比矩阵 | `fl2va_raw-20260920-234316` |
+| 历史 batch | Sage+FBC 0.25，N=3 | 817.6 | 旧 prompt 与 load 口径 | `batch3_sage_fbcache025-20260920-213701` |
+| 重复性 | SDPA+FBC 0.25，repeat=2 | 579.1 | 两份输出逐字节一致 | `fbcache025_repeat2_reuse-20260920-181316` |
+| 重复性 | Sage+FBC 0.25，repeat=2 | 500.5 | 两份输出逐字节一致 | `sage_fbcache025_repeat2_reuse-20260920-211122` |
+| 正确性失败 | Sage+FBC 0.25+compile，N=5 | 1122.6 | 2/5 latent NaN/黑帧 | `batch5_sage_fbcache025_compile-20260928-125513` |
+| 早期 smoke | SDPA，2 sigma/1 前向 | 309.3 | 非正式口径 | `steps2-20260920-172251` |
+| profiler | SDPA，2 sigma/1 前向 | 209.6 | kernel 归因 | `steps2-20260928-202235` |
+| profiler | Sage，2 sigma/1 前向 | 268.6 | kernel 归因 | `sage_steps2-20260928-202608` |
+| load 标定 | SDPA，2 sigma，repeat=2 | 508.0 | cold load 396.6 s | `steps2_repeat2_reuse-20260928-145944` |
+| load 标定 | SDPA，2 sigma，repeat=2 | 507.6 | cold load 396.8 s | `steps2_repeat2_reuse-20260928-150823` |
+| load 对照 | `--no-load-opt`，2 sigma | 449.8 | host 中转无显著差异 | `nodevmap_steps2-20260928-152320` |
+| load 探针 | 串行 shard，2 sigma | 449.6 | parallel-load 对照 | `probe_parallel_off-20260929-01` |
+| load 探针 | parallel shard，2 sigma | 448.0 | 仅改善 0.13% | `probe_parallel_on-20260929-01` |
+| SGLang smoke | 4 秒，2 sigma/1 前向 | 183.7 | 仅验证执行与媒体链路 | `sglang-smoke-20261007-01` |
+| SGLang 失败 | SageAttention | 286.0 | H3 DiT 无可切换 attention layer | `sglang_sage-20261008-015752` |
+| SGLang resident 探针 | 13/52 block，4 sigma | 564.4 | 峰值 28.52 GiB | `probe_sglang_resident025_steps4-20261008-112439` |
+| SGLang resident 探针 | 26/52 block，4 sigma | 523.3 | 峰值 44.16 GiB | `probe_sglang_resident050_steps4-20261008-113440` |
+| SGLang resident 探针 | 39/52 block，4 sigma | 483.1 | 峰值 59.79 GiB | `probe_sglang_resident075_steps4-20261008-114343` |
+| SGLang resident 探针 | 52/52 block，4 sigma | 459.8 | 峰值 70.42 GiB | `probe_sglang_resident50_steps4-20261008-115211` |
+
+当前共有 15 个主线成功 run（diffusers 标准 9、Turbo 2、SGLang 4）和 19 个归档 `run.json`，合计 34 个；另有 1 个不含 `run.json` 的早期 SGLang smoke 证据组。完整性以目录反向枚举校验。
+
+### D. 参考链接
 
 - MiniMax-H3: `https://github.com/MiniMaxAI/MiniMax-H3`
 - SGLang MiniMax-H3 cookbook: `https://docs.sglang.io/cookbook/diffusion/MiniMax/MiniMax-H3`
 - SGLang H3 resident-load host RAM issue: `https://github.com/sgl-project/sglang/issues/34902`
 - SGLang H3 local-path loading issue: `https://github.com/sgl-project/sglang/issues/33528`
 - diffusers FBCache: `diffusers.hooks.first_block_cache`（v0.40.0）
-- 实验代码：`scripts/run_h3.py`、`scripts/h3_monitor.py`、`scripts/h3_report.py`、`scripts/stage_table.py`
+- 实验代码：`scripts/run_h3.py`、`scripts/run_sglang_h3.py`、`scripts/h3_monitor.py`、`scripts/h3_report.py`、`scripts/stage_table.py`
 
-### D. 已知限制
+### E. 已知限制
 
 1. 全部性能实验为单卡 A100-80GB；A100 没有 FP8 attention 路径，多卡未测。
-2. 正式主线结论仅适用于 T2VA 768p/124 帧/50 步；Turbo LoRA 仅有 9 个 sigma 点（8 次前向）的独立探索，FL2VA/Ref2VA 未纳入。
+2. 正式主线均为 T2VA 768p/124 帧：标准 diffusers 与 SGLang 使用 50 个 sigma 点，Turbo LoRA 独立主线使用 9 个 sigma 点（8 次前向）；FL2VA/Ref2VA 未纳入。
 3. FBCache 需要为 MiniMax-H3 手动注册 block 和 context；阈值影响画质且与内容相关。
 4. 视频 PSNR/SSIM 与 decoded-audio SNR 只覆盖一个狐狸 prompt，且参考与目标均为 H.264/AAC 成片；不能代替人工评价、原始 PCM/帧级 lossless 指标或业务样本集。
 5. `<1%` 的性能差异低于当前夹具的可区分范围。

@@ -1,0 +1,21 @@
+scripts/run_sglang_h3.py --runs-dir /mnt/workspace/runs/bak --outputs-dir /mnt/workspace/outputs/bak --tag probe_sglang_resident050_steps4 --steps 4 --dit-resident-layers 0.5 --drop-page-cache
+
+{
+  "run_id": null,
+  "tag": "probe_sglang_resident050_steps4",
+  "model_path": "/mnt/workspace/MiniMax-H3-SGLang",
+  "runs_dir": "/mnt/workspace/runs/bak",
+  "outputs_dir": "/mnt/workspace/outputs/bak",
+  "prompt": "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+  "seed": 0,
+  "steps": 4,
+  "duration_seconds": 5.0,
+  "drop_page_cache": true,
+  "cache_dit": false,
+  "cache_dit_threshold": 0.24,
+  "attention_backend": null,
+  "compile": false,
+  "dit_resident_layers": 0.5,
+  "dit_prefetch_size": 0.0,
+  "monitor_hz": 2.0
+}

@@ -1,0 +1,292 @@
+{
+  "timestamp": "2026-10-07T17:48:59.877836+00:00",
+  "request_id": "74be73bf-dd65-47bf-b9fa-27f18af8fee3",
+  "commit_hash": "ee8781be5c783a0b63049ea83284c4521bc73845",
+  "tag": "cli_generate",
+  "total_duration_ms": 1510747.458614991,
+  "steps": [
+    {
+      "name": "InputValidationStage",
+      "duration_ms": 0.05304301157593727
+    },
+    {
+      "name": "MiniMaxH3PartitionAdmissionStage",
+      "duration_ms": 0.023317988961935043
+    },
+    {
+      "name": "MiniMaxH3TextEncodingStage",
+      "duration_ms": 5221.137857064605
+    },
+    {
+      "name": "MiniMaxH3VisualEncodingStage",
+      "duration_ms": 0.5636890418827534
+    },
+    {
+      "name": "MiniMaxH3AudioEncodingStage",
+      "duration_ms": 0.029120012186467648
+    },
+    {
+      "name": "MiniMaxH3LatentPreparationStage",
+      "duration_ms": 24.679486989043653
+    },
+    {
+      "name": "MiniMaxH3TimestepPreparationStage",
+      "duration_ms": 0.27600699104368687
+    },
+    {
+      "name": "MiniMaxH3DenoisingStage",
+      "duration_ms": 1480799.577119993
+    },
+    {
+      "name": "MiniMaxH3DecodingStage",
+      "duration_ms": 24540.797187946737
+    },
+    {
+      "name": "Scheduler.return_result.spill_arrays",
+      "duration_ms": 0.038909027352929115
+    },
+    {
+      "name": "SchedulerClient.materialize_file_refs",
+      "duration_ms": 0.007363967597484589
+    }
+  ],
+  "denoise_steps_ms": [
+    {
+      "step": 0,
+      "duration_ms": 98981.54240706936
+    },
+    {
+      "step": 1,
+      "duration_ms": 98422.43034893181
+    },
+    {
+      "step": 2,
+      "duration_ms": 98415.52415699698
+    },
+    {
+      "step": 3,
+      "duration_ms": 98417.71953296848
+    },
+    {
+      "step": 4,
+      "duration_ms": 630.6750990916044
+    },
+    {
+      "step": 5,
+      "duration_ms": 360.06412701681256
+    },
+    {
+      "step": 6,
+      "duration_ms": 359.1133039444685
+    },
+    {
+      "step": 7,
+      "duration_ms": 97400.31774505042
+    },
+    {
+      "step": 8,
+      "duration_ms": 630.985775962472
+    },
+    {
+      "step": 9,
+      "duration_ms": 359.6229850081727
+    },
+    {
+      "step": 10,
+      "duration_ms": 357.65140096191317
+    },
+    {
+      "step": 11,
+      "duration_ms": 97407.42982190568
+    },
+    {
+      "step": 12,
+      "duration_ms": 629.2166069615632
+    },
+    {
+      "step": 13,
+      "duration_ms": 358.8601229712367
+    },
+    {
+      "step": 14,
+      "duration_ms": 359.88522600382566
+    },
+    {
+      "step": 15,
+      "duration_ms": 97403.92779698595
+    },
+    {
+      "step": 16,
+      "duration_ms": 627.319380058907
+    },
+    {
+      "step": 17,
+      "duration_ms": 359.0855239890516
+    },
+    {
+      "step": 18,
+      "duration_ms": 359.0791670139879
+    },
+    {
+      "step": 19,
+      "duration_ms": 97400.54503805004
+    },
+    {
+      "step": 20,
+      "duration_ms": 627.1174279972911
+    },
+    {
+      "step": 21,
+      "duration_ms": 359.01971196290106
+    },
+    {
+      "step": 22,
+      "duration_ms": 359.0447260066867
+    },
+    {
+      "step": 23,
+      "duration_ms": 97572.24943395704
+    },
+    {
+      "step": 24,
+      "duration_ms": 627.7359530795366
+    },
+    {
+      "step": 25,
+      "duration_ms": 358.3521139807999
+    },
+    {
+      "step": 26,
+      "duration_ms": 356.5390690928325
+    },
+    {
+      "step": 27,
+      "duration_ms": 97368.31778695341
+    },
+    {
+      "step": 28,
+      "duration_ms": 626.8455530516803
+    },
+    {
+      "step": 29,
+      "duration_ms": 357.92048601433635
+    },
+    {
+      "step": 30,
+      "duration_ms": 359.8824921064079
+    },
+    {
+      "step": 31,
+      "duration_ms": 97270.83494700491
+    },
+    {
+      "step": 32,
+      "duration_ms": 625.3311679465696
+    },
+    {
+      "step": 33,
+      "duration_ms": 356.9788330933079
+    },
+    {
+      "step": 34,
+      "duration_ms": 357.7048849547282
+    },
+    {
+      "step": 35,
+      "duration_ms": 97270.51009808201
+    },
+    {
+      "step": 36,
+      "duration_ms": 631.6594569943845
+    },
+    {
+      "step": 37,
+      "duration_ms": 357.8076190315187
+    },
+    {
+      "step": 38,
+      "duration_ms": 357.74735105223954
+    },
+    {
+      "step": 39,
+      "duration_ms": 97272.69607305061
+    },
+    {
+      "step": 40,
+      "duration_ms": 627.6974760694429
+    },
+    {
+      "step": 41,
+      "duration_ms": 357.8200429910794
+    },
+    {
+      "step": 42,
+      "duration_ms": 357.38496691919863
+    },
+    {
+      "step": 43,
+      "duration_ms": 97278.12358597293
+    },
+    {
+      "step": 44,
+      "duration_ms": 626.0152800241485
+    },
+    {
+      "step": 45,
+      "duration_ms": 357.6676050433889
+    },
+    {
+      "step": 46,
+      "duration_ms": 356.2112309737131
+    },
+    {
+      "step": 47,
+      "duration_ms": 97278.24632497504
+    },
+    {
+      "step": 48,
+      "duration_ms": 625.1069530844688
+    }
+  ],
+  "memory_checkpoints": {
+    "before_forward": {
+      "allocated_mb": 4995.17,
+      "reserved_mb": 5050.0,
+      "peak_allocated_mb": 4995.17,
+      "peak_reserved_mb": 5050.0,
+      "peak_host_anon_mb": 0.0
+    },
+    "after_forward": {
+      "allocated_mb": 6008.92,
+      "reserved_mb": 6134.0,
+      "peak_allocated_mb": 11009.85,
+      "peak_reserved_mb": 16096.0,
+      "peak_host_anon_mb": 0.0
+    },
+    "load_peak": {
+      "allocated_mb": 4542.91,
+      "reserved_mb": 6234.0,
+      "peak_allocated_mb": 4995.17,
+      "peak_reserved_mb": 5050.0,
+      "peak_host_anon_mb": 0.0
+    },
+    "runtime_peak": {
+      "allocated_mb": 4542.91,
+      "reserved_mb": 6234.0,
+      "peak_allocated_mb": 11009.85,
+      "peak_reserved_mb": 16096.0,
+      "peak_host_anon_mb": 0.0
+    },
+    "warmup_peak": {
+      "allocated_mb": 4542.91,
+      "reserved_mb": 6234.0,
+      "peak_allocated_mb": 11009.85,
+      "peak_reserved_mb": 0.0,
+      "peak_host_anon_mb": 0.0
+    }
+  },
+  "meta": {
+    "prompt": "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+    "model": "/mnt/workspace/MiniMax-H3-SGLang"
+  }
+}

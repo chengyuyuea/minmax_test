@@ -3,7 +3,7 @@
 A run is named `<method>-<YYYYMMDD>-<HHMMSS>`. <method> lists every lever that differs
 from a plain 50-step T2VA generation, joined by `_` in a fixed order:
 
-    batch<N>  fl2va  sage  fbcache<ttt>  turbolora  compile  tf32  nodevmap
+    batch<N>  fl2va  sage  fbcache<ttt>  turbolora_v4_8eval  compile  tf32  nodevmap
     steps<S>  repeat<R>  reuse
 
 fbcache<ttt> is the threshold x100, zero-padded (0.25 -> fbcache025). A run with no
@@ -26,14 +26,14 @@ def method_name(args: dict, attn_backend: str | None, n_prompts: int | None = No
     if args.get("cache_dit"):
         levers.append(f"fbcache{round(float(args['cache_dit_threshold']) * 100):03d}")
     if args.get("lora"):
-        levers.append("turbolora")
+        levers.append("turbolora_v4_8eval")
     if args.get("compile"):
         levers.append("compile")
     if args.get("tf32"):
         levers.append("tf32")
     if args.get("no_load_opt"):
         levers.append("nodevmap")
-    if args.get("steps", 50) != 50:
+    if args.get("steps", 50) != 50 and not args.get("lora"):
         levers.append(f"steps{args['steps']}")
     if args.get("repeat", 1) > 1:
         levers.append(f"repeat{args['repeat']}")
