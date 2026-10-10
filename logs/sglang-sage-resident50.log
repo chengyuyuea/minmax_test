@@ -1,0 +1,640 @@
+[cache] evicted 236 files: 37.7 -> 4.0 GiB in 2.5s
+[run ] sglang_sage_resident50-20261009-194949
+[cmd ] /usr/local/bin/python3 -m sglang.multimodal_gen.runtime.entrypoints.cli.main generate --config /mnt/workspace/runs/sglang_sage_resident50-20261009-194949/config.json --perf-dump-path /mnt/workspace/runs/sglang_sage_resident50-20261009-194949/perf.json --output-file-path /mnt/workspace/outputs/sglang_sage_resident50-20261009-194949/video.mp4
+WARNING:sglang.multimodal_gen.registry:Skipping pipeline module sglang.multimodal_gen.runtime.pipelines.hunyuan3d_pipeline during discovery due to import failure: No module named 'trimesh'
+ERROR:sglang.multimodal_gen.registry:Could not read model config for '/mnt/workspace/MiniMax-H3-SGLang': Model directory /mnt/workspace/MiniMax-H3-SGLang does not contain model_index.json. Only HuggingFace diffusers format is supported.
+[10-09 19:50:14] Applying performance_mode=memory
+[10-09 19:50:14] Using layerwise offload components: dit, text_encoder, vae. This reduces peak GPU memory and can increase latency; use --performance-mode speed for GPU-resident defaults when memory allows.
+[10-09 19:50:14] Using sage_attn attention backend
+[10-09 19:50:14] server_args: {"model_path": "/mnt/workspace/MiniMax-H3-SGLang", "model_subfolder": null, "model_variant": "fl2va", "model_id": null, "served_model_name": "/mnt/workspace/MiniMax-H3-SGLang", "backend": "sglang", "attention_backend": null, "enable_attention_backend_autotune": false, "attention_backend_config": {}, "component_attention_backends": {"transformer": "sage_attn"}, "cache_dit_config": null, "nccl_port": null, "enable_nccl_nvls": false, "trust_remote_code": false, "revision": null, "num_gpus": 1, "performance_mode": "memory", "base_gpu_id": 0, "gpu_ids": null, "nnodes": 1, "node_rank": 0, "dist_init_addr": null, "tp_size": 1, "sp_degree": 1, "ulysses_degree": 1, "ring_degree": 1, "kv_gather_degree": 1, "sp_split_auto": false, "dp_size": 1, "enable_cfg_parallel": false, "cfg_parallel_degree": 1, "encoder_parallel": "auto", "hsdp_replicate_dim": 1, "hsdp_shard_dim": 1, "dist_timeout": 3600, "scheduler_rpc_timeout": null, "pipeline_class_name": "MiniMaxH3Pipeline", "lora_path": null, "lora_nickname": "default", "lora_scale": 1.0, "lora_alpha": null, "lora_merge_mode": "auto", "lora_weight_name": null, "component_paths": {"transformer": "/mnt/workspace/MiniMax-H3/transformer"}, "component_weights_paths": {}, "component_direct_gpu_weight_loading": {}, "component_quantizations": {}, "component_precisions": {}, "component_quantization_ignored_layers": {}, "load_diffusion_decoder": false, "transformer_weights_path": null, "minimax_h3_adaln_cache_path": null, "minimax_h3_adaln_online": false, "minimax_h3_adaln_plan_width": 4, "minimax_h3_adaln_host_cache_gb": 8.0, "quantization": null, "quantization_ignored_layers": null, "lora_target_modules": null, "component_residency": null, "cpu_offload_components": null, "dit_cpu_offload": true, "direct_gpu_weight_loading": false, "dit_layerwise_offload": false, "layerwise_offload_components": ["dit", "text_encoder", "vae"], "dit_offload_prefetch_size": 0.0, "dit_layerwise_resident_layers": 50.0, "dit_layerwise_residency_policy": "leading", "layerwise_prefetch_size": {}, "layerwise_resident_layers": {"video_vae": 36}, "layerwise_residency_policy": {}, "offload_during_compile": true, "text_encoder_cpu_offload": false, "image_encoder_cpu_offload": false, "vae_cpu_offload": false, "use_fsdp_inference": false, "pin_cpu_memory": true, "ltx2_two_stage_device_mode": null, "comfyui_mode": false, "enable_torch_compile": false, "regional_compile": false, "enable_breakable_cuda_graph": false, "bcg_text_buckets": null, "enable_layerwise_nvtx_marker": false, "warmup_mode": "off", "warmup_resolutions": null, "warmup_num_frames": null, "warmup_steps": 1, "warmup_sampling_params": null, "disable_autocast": false, "master_port": 30005, "host": "127.0.0.1", "port": 30000, "webui": false, "webui_port": 12312, "scheduler_port": 5600, "scheduler_ports": [5600], "batching_mode": "dynamic", "batching_max_size": 1, "batching_delay_ms": 0.0, "batching_config": null, "enable_batching_metrics": false, "strict_ports": false, "output_path": "/mnt/workspace/outputs/sglang_sage_resident50-20261009-194949", "input_save_path": "inputs/uploads", "prompt_file_path": null, "model_paths": {}, "model_loaded": {"transformer": true, "vae": true, "video_vae": true, "audio_vae": true, "video_dit": true, "audio_dit": true, "dual_tower_bridge": true}, "boundary_ratio": null, "disagg_role": "monolithic", "disagg_timeout": 3600, "disagg_downstream_wait_timeout": 1800, "disagg_dispatch_policy": "round_robin", "disagg_mode": false, "disagg_instance_id": 0, "disagg_max_slots_per_instance": 8, "disagg_transfer_redundancy": 1.25, "disagg_role_device": "auto", "disagg_transfer_backend": "auto", "disagg_transfer_pool_size": 268435456, "disagg_transfer_pin_memory": "auto", "disagg_p2p_hostname": "127.0.0.1", "disagg_ib_device": null, "disagg_server_addr": null, "encoder_urls": null, "denoiser_urls": null, "decoder_urls": null, "encoder_tp": null, "denoiser_tp": null, "denoiser_sp": null, "denoiser_ulysses": null, "denoiser_ring": null, "decoder_sp": null, "pool_work_endpoint": null, "pool_result_endpoint": null, "pool_control_endpoint": null, "pool_control_advertised_endpoint": null, "log_level": "info", "log_requests": false, "log_requests_level": 2, "log_requests_format": "text", "log_requests_target": null, "uvicorn_access_log_exclude_prefixes": [], "enable_cache_report": false, "enable_trace": false, "otlp_traces_endpoint": "localhost:4317", "srt_encoder_url": null, "srt_encoder_connect_timeout": 3.05, "srt_encoder_timeout": 100, "pe_server_url": null}
+[10-09 19:50:14] Local mode: True
+[10-09 19:50:14] Starting server...
+[10-09 19:50:30] Scheduler (dp replica 0) bind at endpoint: tcp://127.0.0.1:5600
+[10-09 19:50:30] torch.compile cache: TORCHINDUCTOR_CACHE_DIR=/root/.cache/sgl_diffusion/torch_compile_cache/inductor TRITON_CACHE_DIR=/root/.cache/sgl_diffusion/torch_compile_cache/triton
+[10-09 19:50:30] Initializing distributed environment with world_size=1, device=cuda:0, timeout=3600
+[10-09 19:50:30] Setting distributed timeout to 3600 seconds
+[10-09 19:50:31] Detected Megatron Core, using Megatron-FSDP with Megatron.
+[10-09 19:50:31] Detected Megatron Core, using Megatron-FSDP with Megatron.
+[93m[10-09 19:50:34] Skipping pipeline module sglang.multimodal_gen.runtime.pipelines.hunyuan3d_pipeline during discovery due to import failure: No module named 'trimesh'[0;0m
+[10-09 19:50:34] Requested pipeline_class_name: MiniMaxH3Pipeline
+[10-09 19:50:34] Available pipelines in registry: ['ComfyUIFluxPipeline', 'ComfyUIQwenImagePipeline', 'ComfyUIQwenImageEditPipeline', 'ComfyUIZImagePipeline', 'Cosmos3OmniPipeline', 'Cosmos3OmniDiffusersPipeline', 'DiffusersPipeline', 'ErnieImagePipeline', 'FluxPipeline', 'Flux2Pipeline', 'Flux2KleinPipeline', 'Flux2NvfpPipeline', 'GlmImagePipeline', 'HeliosPipeline', 'HeliosPyramidPipeline', 'HunyuanVideoPipeline', 'Ideogram4Pipeline', 'Ideogram4Nvfp4Pipeline', 'Ideogram4FastPipeline', 'Ideogram4InstantPipeline', 'JoyEchoPipeline', 'JoyImageEditPipeline', 'Krea2Pipeline', 'LingBotVideoPipeline', 'LingBotWorldCausalDMDPipeline', 'LongCatImagePipeline', 'LongCatImageEditPipeline', 'LongLive2Pipeline', 'LTX2Pipeline', 'LTX2TwoStagePipeline', 'LTX2TwoStageHQPipeline', 'MiniMaxH3Pipeline', 'FastH3Pipeline', 'VDNH3Pipeline', 'MOVA', 'MOVAPipeline', 'Pi05Pipeline', 'QwenImagePipeline', 'QwenImageEditPipeline', 'QwenImageEditPlusPipeline', 'QwenImageLayeredPipeline', 'SanaPipeline', 'SanaVideoPipeline', 'SanaWMPipeline', 'SanaWMTwoStagePipeline', 'SanaWMRealtimePipeline', 'SenseNovaU1Pipeline', 'StableDiffusion3Pipeline', 'WanCausalDMDPipeline', 'WanDMDPipeline', 'WanImageToVideoDmdPipeline', 'WanImageToVideoPipeline', 'WanPipeline', 'ZImagePipeline']
+[10-09 19:50:34] ✓ Using explicitly specified pipeline: MiniMaxH3Pipeline (class: MiniMaxH3Pipeline)
+[10-09 19:50:34] Loading pipeline modules...
+[10-09 19:50:34] Model path: /mnt/workspace/MiniMax-H3-SGLang/FL2VA
+[10-09 19:50:34] Diffusers version: 0.32.2
+[10-09 19:50:34] Loading pipeline modules from config: {'_class_name': 'MiniMaxH3Pipeline', '_diffusers_version': '0.32.2', 'text_encoder': ['transformers', 'MiniMaxH3Qwen3VLHFEncoder'], 'tokenizer': ['transformers', 'Qwen2TokenizerFast'], 'video_vae': ['diffusers', 'MiniMaxH3VideoVAE'], 'audio_vae': ['diffusers', 'MiniMaxH3AudioVAE'], 'scheduler': None, 'transformer': ['diffusers', 'MiniMaxH3DiTModel'], 'processor': ['transformers', 'Qwen3VLProcessor'], '_minimax_h3': {'schema_version': 1, 'partition': 'fl2va', 'tasks': ['t2va', 'fl2va'], 'task_aliases': {}, 'sigma_shift_scales': {'video': 12.0, 'audio': 3.0}}}
+[10-09 19:50:34] Loading required components: ['processor', 'text_encoder', 'tokenizer', 'video_vae', 'audio_vae', 'transformer']
+[10-09 19:50:34] Memory-aware component load order: ['text_encoder', 'transformer', 'audio_vae', 'video_vae', 'processor', 'tokenizer']
+
+Loading required modules:   0%|          | 0/6 [00:00<?, ?it/s][10-09 19:50:34] Loading text_encoder from /mnt/workspace/MiniMax-H3-SGLang/FL2VA/text_encoder. avail mem: 78.38 GB
+[10-09 19:50:34] Cannot use FlashAttention backend for head size 72.
+
+
+Loading safetensors checkpoint shards: 0%|          | 0/12[A
+
+Loading safetensors checkpoint shards: 8%|▊         | 1/12[A
+
+Loading safetensors checkpoint shards: 17%|█▋        | 2/12[A
+
+Loading safetensors checkpoint shards: 25%|██▌       | 3/12[A
+
+Loading safetensors checkpoint shards: 33%|███▎      | 4/12[A
+
+Loading safetensors checkpoint shards: 42%|████▏     | 5/12[A
+
+Loading safetensors checkpoint shards: 50%|█████     | 6/12[A
+
+Loading safetensors checkpoint shards: 58%|█████▊    | 7/12[A
+
+Loading safetensors checkpoint shards: 67%|██████▋   | 8/12[A
+
+Loading safetensors checkpoint shards: 75%|███████▌  | 9/12[A
+
+Loading safetensors checkpoint shards: 83%|████████▎ | 10/12[A
+
+Loading safetensors checkpoint shards: 92%|█████████▏| 11/12[A
+
+Loading safetensors checkpoint shards: 100%|██████████| 12/12[A
+Loading safetensors checkpoint shards: 100%|██████████| 12/12
+[10-09 19:52:54] Attention backends for text_encoder: torch_sdpa, fa
+[10-09 19:52:54] Loaded text_encoder: MiniMaxH3Qwen3VLEncoder (sgl-diffusion version). model size: 48.09 GB, host pageable: 48.09 GB. avail GPU mem: 78.38 GB
+
+Loading required modules:  17%|█▋        | 1/6 [02:19<11:38, 139.70s/it][10-09 19:52:54] Using sage_attn backend for component: transformer
+[10-09 19:52:54] Loading transformer from /mnt/workspace/MiniMax-H3/transformer. avail mem: 78.38 GB
+[10-09 19:52:54] Loading MiniMaxH3Transformer3DModel from 14 safetensors file(s) , param_dtype: torch.bfloat16
+
+
+Loading safetensors checkpoint shards: 0%|          | 0/14[A
+
+Loading safetensors checkpoint shards: 7%|▋         | 1/14[A
+
+Loading safetensors checkpoint shards: 14%|█▍        | 2/14[A
+
+Loading safetensors checkpoint shards: 21%|██▏       | 3/14[A
+
+Loading safetensors checkpoint shards: 29%|██▊       | 4/14[A
+
+Loading safetensors checkpoint shards: 36%|███▌      | 5/14[A
+
+Loading safetensors checkpoint shards: 43%|████▎     | 6/14[A
+
+Loading safetensors checkpoint shards: 50%|█████     | 7/14[A
+
+Loading safetensors checkpoint shards: 57%|█████▋    | 8/14[A
+
+Loading safetensors checkpoint shards: 64%|██████▍   | 9/14[A
+
+Loading safetensors checkpoint shards: 71%|███████▏  | 10/14[A
+
+Loading safetensors checkpoint shards: 79%|███████▊  | 11/14[A
+
+Loading safetensors checkpoint shards: 86%|████████▌ | 12/14[A
+
+Loading safetensors checkpoint shards: 93%|█████████▎| 13/14[A
+
+Loading safetensors checkpoint shards: 100%|██████████| 14/14[A
+Loading safetensors checkpoint shards: 100%|██████████| 14/14
+[10-09 19:54:10] Attention backends for transformer: sage_attn (deferred first-use selection)
+[10-09 19:54:10] Loaded transformer: MiniMaxH3DiTModel (sgl-diffusion version). model size: 61.73 GB, host mmap: 35.60 GB, host pageable: 26.13 GB. avail GPU mem: 78.38 GB
+
+Loading required modules:  33%|███▎      | 2/6 [03:36<06:50, 102.61s/it][10-09 19:54:10] Loading audio_vae from /mnt/workspace/MiniMax-H3-SGLang/FL2VA/audio_vae. avail mem: 78.38 GB
+[10-09 19:54:12] Attention backends for audio_vae: torch_sdpa
+[10-09 19:54:12] Loaded audio_vae: MiniMaxH3AudioVAE (sgl-diffusion version). model size: 0.56 GB, vram: 0.56 GB. avail GPU mem: 77.81 GB
+
+Loading required modules:  50%|█████     | 3/6 [03:38<02:49, 56.51s/it] [10-09 19:54:12] Loading video_vae from /mnt/workspace/MiniMax-H3-SGLang/FL2VA/video_vae. avail mem: 77.81 GB
+[10-09 19:54:12] video_vae (VAE) stays on its checkpoint mapping: the deployment is 143.75 GiB of weights against 5.46 GiB of host memory, so copies are host memory the streamed components need more.
+[10-09 19:54:12] VAE: video_vae holds 288 decoder weights in torch.float16 from load (file-backed)
+[10-09 19:54:12] Attention backends for video_vae: torch_sdpa
+[10-09 19:54:12] Loaded video_vae: MiniMaxH3VideoVAE (sgl-diffusion version). model size: 5.2 GB, host mmap: 5.20 GB, host pageable: 0.00 GB. avail GPU mem: 77.81 GB
+
+Loading required modules:  67%|██████▋   | 4/6 [03:38<01:08, 34.31s/it][10-09 19:54:12] Loading processor from /mnt/workspace/MiniMax-H3-SGLang/FL2VA/processor. avail mem: 77.81 GB
+[10-09 19:54:13] Loaded processor: Qwen3VLProcessor (sgl-diffusion version). model size: NA GB, weights: none. avail GPU mem: 77.81 GB
+
+Loading required modules:  83%|████████▎ | 5/6 [03:38<00:22, 22.09s/it][10-09 19:54:13] Loading tokenizer from /mnt/workspace/MiniMax-H3-SGLang/FL2VA/tokenizer. avail mem: 77.81 GB
+[10-09 19:54:13] Loaded tokenizer: Qwen2Tokenizer (sgl-diffusion version). model size: NA GB, weights: none. avail GPU mem: 77.81 GB
+
+Loading required modules: 100%|██████████| 6/6 [03:39<00:00, 14.72s/it]
+Loading required modules: 100%|██████████| 6/6 [03:39<00:00, 36.52s/it]
+[10-09 19:54:13] Creating pipeline stages...
+[10-09 19:54:13] Using fa attention backend
+[10-09 19:54:13] Pipeline instantiated
+[10-09 19:54:13] Layerwise offload host memory: 5.6 GiB available (cgroup cap 125.0 GiB, in use 119.4 GiB)
+[10-09 19:54:13] Configuring layerwise offload for transformer (MiniMaxH3DiTModel): token_refiner.blocks (2 layers), blocks (50 layers)
+[10-09 19:54:13] Layerwise offload: transformer.blocks pins 2 of 50 layers (2.40 GiB of 3.56 GiB spendable). Of the rest, 0 are copied into pageable host memory and 48 stay on the checkpoint mapping. Pinning every layer would need 60.12 GiB.
+[10-09 19:54:19] Layerwise offload: transformer.token_refiner.blocks pins 1 of 2 layers (0.72 GiB of 1.15 GiB spendable). Of the rest, 1 are copied into pageable host memory and 0 stay on the checkpoint mapping. Pinning every layer would need 1.44 GiB.
+[10-09 19:54:20] Layerwise offload ready for transformer (MiniMaxH3DiTModel) in 7.16s: groups=2, layers=52, prefetch/group=1, resident=52/52, policy=leading
+[10-09 19:54:20] Configuring layerwise offload for text_encoder (MiniMaxH3Qwen3VLEncoder): model.language_model.layers (50 layers), model.visual.blocks (27 layers)
+[10-09 19:54:20] Layerwise offload: text_encoder.model.language_model.layers pins 0 of 50 layers (0.00 GiB of 0.44 GiB spendable). Of the rest, 50 are copied into pageable host memory and 0 stay on the checkpoint mapping. Pinning every layer would need 45.41 GiB.
+[10-09 19:54:25] Layerwise offload: text_encoder.model.visual.blocks pins 15 of 27 layers (0.43 GiB of 0.44 GiB spendable). Of the rest, 12 are copied into pageable host memory and 0 stay on the checkpoint mapping. Pinning every layer would need 0.77 GiB.
+[10-09 19:54:25] Keeping Embedding (1.45 GiB) in host memory: a gather reads one row per token, so residency buys almost nothing.
+[10-09 19:54:26] Layerwise offload ready for text_encoder (MiniMaxH3Qwen3VLEncoder) in 5.23s: groups=2, layers=77, prefetch/group=1, resident=0/77, policy=leading
+[10-09 19:54:26] Configuring layerwise offload for video_vae (MiniMaxH3VideoVAE): decoder.transformer_blocks (36 layers)
+[10-09 19:54:26] Layerwise offload: video_vae.decoder.transformer_blocks pins 0 of 36 layers (0.00 GiB of 0.01 GiB spendable). Of the rest, 0 are copied into pageable host memory and 36 stay on the checkpoint mapping. Pinning every layer would need 4.50 GiB.
+[10-09 19:54:27] Layerwise offload: decoder.transformer_blocks ships mapped layers through a courier thread with 2 pinned slots, so their device copies overlap compute instead of stalling it.
+[10-09 19:54:27] Layerwise offload ready for video_vae (MiniMaxH3VideoVAE) in 1.34s: groups=1, layers=36, prefetch/group=1, resident=36/36, policy=leading
+[10-09 19:54:27] Layerwise offload summary: transformer (vram: 2.09 GB, host pinned: 3.12 GB, host mmap: 33.60 GB, host pageable: 24.83 GB), text_encoder (vram: 1.40 GB, host pinned: 0.43 GB, host pageable: 47.20 GB), video_vae (vram: 0.70 GB, host mmap: 4.50 GB)
+[10-09 19:54:27] Worker 0: Initialized device, model, and distributed environment.
+[10-09 19:54:27] Worker 0: Scheduler loop started.
+[10-09 19:54:27] Adjusting number of frames from 1 to 1 based on model
+[10-09 19:54:27] Processing 1 grouped request(s)
+[10-09 19:54:27] Sampling params:
+                       width: 1344
+                      height: 768
+                  num_frames: 124
+                         fps: 24
+                      prompt: <redacted, len=121>
+                  neg_prompt: None
+                        seed: 0
+                 infer_steps: 50
+      num_outputs_per_prompt: 1
+              guidance_scale: 1.0
+     embedded_guidance_scale: 6.0
+                    n_tokens: None
+                  flow_shift: 12.0
+                  image_path: None
+                 save_output: True
+            output_file_path: /mnt/workspace/outputs/sglang_sage_resident50-20261009-194949/video.mp4
+        
+[10-09 19:54:27] Running pipeline stages: ['InputValidationStage', 'MiniMaxH3PartitionAdmissionStage', 'MiniMaxH3TextEncodingStage', 'MiniMaxH3VisualEncodingStage', 'MiniMaxH3AudioEncodingStage', 'MiniMaxH3LatentPreparationStage', 'MiniMaxH3TimestepPreparationStage', 'MiniMaxH3DenoisingStage', 'MiniMaxH3DecodingStage']
+[10-09 19:54:27] [InputValidationStage] started...
+[10-09 19:54:27] [InputValidationStage] finished in 0.0001 seconds
+[10-09 19:54:27] [MiniMaxH3PartitionAdmissionStage] started...
+[10-09 19:54:27] [MiniMaxH3PartitionAdmissionStage] finished in 0.0000 seconds
+[10-09 19:54:27] [MiniMaxH3TextEncodingStage] started...
+[10-09 19:54:32] [MiniMaxH3TextEncodingStage] finished in 5.1704 seconds
+[10-09 19:54:32] [MiniMaxH3VisualEncodingStage] started...
+[10-09 19:54:32] [MiniMaxH3VisualEncodingStage] finished in 0.0005 seconds
+[10-09 19:54:32] [MiniMaxH3AudioEncodingStage] started...
+[10-09 19:54:32] [MiniMaxH3AudioEncodingStage] finished in 0.0000 seconds
+[10-09 19:54:32] [MiniMaxH3LatentPreparationStage] started...
+[10-09 19:54:32] [MiniMaxH3LatentPreparationStage] finished in 0.0224 seconds
+[10-09 19:54:32] [MiniMaxH3TimestepPreparationStage] started...
+[10-09 19:54:32] [MiniMaxH3TimestepPreparationStage] finished in 0.0003 seconds
+[10-09 19:54:32] [MiniMaxH3DenoisingStage] started...
+[10-09 19:54:32] Using sage_attn attention backend
+
+minimax_h3 denoise:   0%|          | 0/49 [00:00<?, ?it/s][10-09 19:54:34] Layerwise offload: blocks ships mapped layers through a courier thread with 2 pinned slots, so their device copies overlap compute instead of stalling it.
+
+minimax_h3 denoise:   2%|▏         | 1/49 [01:41<1:21:24, 101.77s/it]
+minimax_h3 denoise:   4%|▍         | 2/49 [01:56<39:24, 50.31s/it]   
+minimax_h3 denoise:   6%|▌         | 3/49 [02:10<26:02, 33.96s/it]
+minimax_h3 denoise:   8%|▊         | 4/49 [02:25<19:42, 26.29s/it]
+minimax_h3 denoise:  10%|█         | 5/49 [02:39<16:09, 22.04s/it]
+minimax_h3 denoise:  12%|█▏        | 6/49 [02:54<13:57, 19.48s/it]
+minimax_h3 denoise:  14%|█▍        | 7/49 [03:08<12:30, 17.86s/it]
+minimax_h3 denoise:  16%|█▋        | 8/49 [03:23<11:28, 16.79s/it]
+minimax_h3 denoise:  18%|█▊        | 9/49 [03:37<10:43, 16.08s/it]
+minimax_h3 denoise:  20%|██        | 10/49 [03:52<10:08, 15.59s/it]
+minimax_h3 denoise:  22%|██▏       | 11/49 [04:06<09:39, 15.26s/it]
+minimax_h3 denoise:  24%|██▍       | 12/49 [04:21<09:16, 15.03s/it]
+minimax_h3 denoise:  27%|██▋       | 13/49 [04:35<08:55, 14.87s/it]
+minimax_h3 denoise:  29%|██▊       | 14/49 [04:50<08:36, 14.76s/it]
+minimax_h3 denoise:  31%|███       | 15/49 [05:04<08:19, 14.68s/it]
+minimax_h3 denoise:  33%|███▎      | 16/49 [05:19<08:02, 14.63s/it]
+minimax_h3 denoise:  35%|███▍      | 17/49 [05:33<07:46, 14.59s/it]
+minimax_h3 denoise:  37%|███▋      | 18/49 [05:48<07:31, 14.56s/it]
+minimax_h3 denoise:  39%|███▉      | 19/49 [06:02<07:16, 14.54s/it]
+minimax_h3 denoise:  41%|████      | 20/49 [06:17<07:01, 14.53s/it]
+minimax_h3 denoise:  43%|████▎     | 21/49 [06:31<06:46, 14.52s/it]
+minimax_h3 denoise:  45%|████▍     | 22/49 [06:46<06:31, 14.51s/it]
+minimax_h3 denoise:  47%|████▋     | 23/49 [07:00<06:17, 14.50s/it]
+minimax_h3 denoise:  49%|████▉     | 24/49 [07:15<06:02, 14.50s/it]
+minimax_h3 denoise:  51%|█████     | 25/49 [07:29<05:47, 14.50s/it]
+minimax_h3 denoise:  53%|█████▎    | 26/49 [07:44<05:33, 14.50s/it]
+minimax_h3 denoise:  55%|█████▌    | 27/49 [07:58<05:18, 14.49s/it]
+minimax_h3 denoise:  57%|█████▋    | 28/49 [08:13<05:04, 14.50s/it]
+minimax_h3 denoise:  59%|█████▉    | 29/49 [08:27<04:49, 14.49s/it]
+minimax_h3 denoise:  61%|██████    | 30/49 [08:42<04:35, 14.49s/it]
+minimax_h3 denoise:  63%|██████▎   | 31/49 [08:56<04:20, 14.49s/it]
+minimax_h3 denoise:  65%|██████▌   | 32/49 [09:11<04:06, 14.49s/it]
+minimax_h3 denoise:  67%|██████▋   | 33/49 [09:25<03:51, 14.49s/it]
+minimax_h3 denoise:  69%|██████▉   | 34/49 [09:40<03:37, 14.49s/it]
+minimax_h3 denoise:  71%|███████▏  | 35/49 [09:54<03:22, 14.49s/it]
+minimax_h3 denoise:  73%|███████▎  | 36/49 [10:09<03:08, 14.49s/it]
+minimax_h3 denoise:  76%|███████▌  | 37/49 [10:23<02:53, 14.49s/it]
+minimax_h3 denoise:  78%|███████▊  | 38/49 [10:37<02:39, 14.49s/it]
+minimax_h3 denoise:  80%|███████▉  | 39/49 [10:52<02:24, 14.49s/it]
+minimax_h3 denoise:  82%|████████▏ | 40/49 [11:06<02:10, 14.49s/it]
+minimax_h3 denoise:  84%|████████▎ | 41/49 [11:21<01:55, 14.48s/it]
+minimax_h3 denoise:  86%|████████▌ | 42/49 [11:35<01:41, 14.48s/it]
+minimax_h3 denoise:  88%|████████▊ | 43/49 [11:50<01:26, 14.48s/it]
+minimax_h3 denoise:  90%|████████▉ | 44/49 [12:04<01:12, 14.48s/it]
+minimax_h3 denoise:  92%|█████████▏| 45/49 [12:19<00:57, 14.48s/it]
+minimax_h3 denoise:  94%|█████████▍| 46/49 [12:33<00:43, 14.48s/it]
+minimax_h3 denoise:  96%|█████████▌| 47/49 [12:48<00:28, 14.48s/it]
+minimax_h3 denoise:  98%|█████████▊| 48/49 [13:02<00:14, 14.48s/it]
+minimax_h3 denoise: 100%|██████████| 49/49 [13:17<00:00, 14.48s/it]
+minimax_h3 denoise: 100%|██████████| 49/49 [13:17<00:00, 16.27s/it]
+[10-09 20:07:50] Layerwise offload: blocks read 33.6 GiB straight from the drive this pass (229 tensors served from the page cache; mean sampled residency 0.60 over 384 probes).
+[10-09 20:08:02] [MiniMaxH3DenoisingStage] finished in 809.6246 seconds
+[10-09 20:08:02] [MiniMaxH3DecodingStage] started...
+[10-09 20:08:26] Layerwise offload: decoder.transformer_blocks read 4.4 GiB straight from the drive this pass (292 tensors served from the page cache; mean sampled residency 0.68 over 432 probes).
+[10-09 20:08:26] [MiniMaxH3DecodingStage] finished in 24.6371 seconds
+[10-09 20:08:28] Output saved to [1;36m/mnt/workspace/outputs/sglang_sage_resident50-20261009-194949/video.mp4[0;0m
+[10-09 20:08:28] Metrics dumped to: [1;36m/mnt/workspace/runs/sglang_sage_resident50-20261009-194949/perf.json[0;0m
+[10-09 20:08:28] Pixel data generated successfully in [92m841.48[0;0m seconds
+[10-09 20:08:28] Memory usage - Max peak: 72604.00 MB, Avg peak: 72604.00 MB
+[10-09 20:08:28] Metrics dumped to: [1;36m/mnt/workspace/runs/sglang_sage_resident50-20261009-194949/perf.json[0;0m
+[93m[10-09 20:08:34] Generator was garbage collected without being shut down. Forcing local server and client cleanup.[0;0m
+/usr/local/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
+{
+  "run_id": "sglang_sage_resident50-20261009-194949",
+  "hz": 2.0,
+  "wall_seconds": 1124.5,
+  "load_seconds_total": 281.91,
+  "run_seconds_total": 839.614,
+  "overhead_seconds": 1124.5,
+  "phase_seconds": {
+    "load:pipeline": 281.91,
+    "run:text_encoder": 5.17,
+    "run:vae_encoder": 0.001,
+    "run:prepare": 0.023,
+    "run:denoise": 809.625,
+    "run:decode": 24.637
+  },
+  "phase_io": {
+    "sglang:subprocess": {
+      "read_gib": 115.58,
+      "major_faults": 0,
+      "cached_before_gib": 4.0,
+      "cached_after_gib": 37.5
+    }
+  },
+  "step_ms_median": 14491.1,
+  "step_ms_mean": 16270.4,
+  "steps_counted": 49,
+  "peak_torch_alloc_gib": 70.9,
+  "peak_nvml_used_gib": 72.55,
+  "peak_host_used_gib": 85.0,
+  "status": "success",
+  "backend": "sglang",
+  "args": {
+    "run_id": null,
+    "tag": null,
+    "model_path": "/mnt/workspace/MiniMax-H3-SGLang",
+    "runs_dir": "/mnt/workspace/runs",
+    "outputs_dir": "/mnt/workspace/outputs",
+    "prompt": "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+    "seed": 0,
+    "steps": 50,
+    "duration_seconds": 5.0,
+    "drop_page_cache": true,
+    "cache_dit": false,
+    "cache_dit_threshold": 0.24,
+    "cache_dit_mc": null,
+    "attention_backend": null,
+    "dit_attention_backend": "sage_attn",
+    "compile": false,
+    "dit_resident_layers": 50.0,
+    "dit_prefetch_size": 0.0,
+    "monitor_hz": 2.0
+  },
+  "sampling": {
+    "model_path": "/mnt/workspace/MiniMax-H3-SGLang",
+    "model_variant": "fl2va",
+    "pipeline_class_name": "MiniMaxH3Pipeline",
+    "backend": "sglang",
+    "performance_mode": "memory",
+    "layerwise_offload_components": [
+      "dit",
+      "text_encoder",
+      "vae"
+    ],
+    "layerwise_resident_layers": {
+      "video_vae": 36
+    },
+    "dit_layerwise_resident_layers": 50.0,
+    "dit_offload_prefetch_size": 0.0,
+    "enable_torch_compile": false,
+    "component_paths": {
+      "transformer": "/mnt/workspace/MiniMax-H3/transformer"
+    },
+    "prompt": "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+    "task": "t2va",
+    "conditions": [],
+    "target": {
+      "short_edge": 768,
+      "aspect_ratio": "16:9",
+      "duration_seconds": 5.0
+    },
+    "num_inference_steps": 50,
+    "flow_shift": 12.0,
+    "audio_flow_shift": 3.0,
+    "seed": 0,
+    "save_output": true,
+    "output_path": "/mnt/workspace/outputs/sglang_sage_resident50-20261009-194949",
+    "output_file_name": "video.mp4",
+    "enable_cache_dit": false,
+    "component_attention_backends": {
+      "transformer": "sage_attn"
+    }
+  },
+  "page_cache": {
+    "dropped": true,
+    "files": 236,
+    "cached_before_gib": 37.7,
+    "cached_after_gib": 4.0,
+    "seconds": 2.47
+  },
+  "output": "/mnt/workspace/outputs/sglang_sage_resident50-20261009-194949/video.mp4",
+  "outputs": [
+    "/mnt/workspace/outputs/sglang_sage_resident50-20261009-194949/video.mp4"
+  ],
+  "batch_size": 1,
+  "returncode": 0,
+  "process_seconds": 1121.524,
+  "sglang_request_seconds": 839.614,
+  "sglang_perf": {
+    "timestamp": "2026-10-09T12:08:28.965135+00:00",
+    "request_id": "c09a039c-b7d7-4bc6-a515-26579d1bb90a",
+    "commit_hash": "da0e5477b74720eee2f5fe2dea23b6c6d0d9d91d",
+    "tag": "cli_generate",
+    "total_duration_ms": 839613.9872369822,
+    "steps": [
+      {
+        "name": "InputValidationStage",
+        "duration_ms": 0.05100807175040245
+      },
+      {
+        "name": "MiniMaxH3PartitionAdmissionStage",
+        "duration_ms": 0.02314604353159666
+      },
+      {
+        "name": "MiniMaxH3TextEncodingStage",
+        "duration_ms": 5170.422957045957
+      },
+      {
+        "name": "MiniMaxH3VisualEncodingStage",
+        "duration_ms": 0.5197220016270876
+      },
+      {
+        "name": "MiniMaxH3AudioEncodingStage",
+        "duration_ms": 0.0251339515671134
+      },
+      {
+        "name": "MiniMaxH3LatentPreparationStage",
+        "duration_ms": 22.394662955775857
+      },
+      {
+        "name": "MiniMaxH3TimestepPreparationStage",
+        "duration_ms": 0.3024839097633958
+      },
+      {
+        "name": "MiniMaxH3DenoisingStage",
+        "duration_ms": 809624.603199074
+      },
+      {
+        "name": "MiniMaxH3DecodingStage",
+        "duration_ms": 24637.141827028245
+      },
+      {
+        "name": "Scheduler.return_result.spill_arrays",
+        "duration_ms": 0.051080016419291496
+      },
+      {
+        "name": "SchedulerClient.materialize_file_refs",
+        "duration_ms": 0.007144059054553509
+      }
+    ],
+    "denoise_steps_ms": [
+      {
+        "step": 0,
+        "duration_ms": 101751.12718495075
+      },
+      {
+        "step": 1,
+        "duration_ms": 14285.68809502758
+      },
+      {
+        "step": 2,
+        "duration_ms": 14507.113517960533
+      },
+      {
+        "step": 3,
+        "duration_ms": 14519.794789026491
+      },
+      {
+        "step": 4,
+        "duration_ms": 14516.348085016944
+      },
+      {
+        "step": 5,
+        "duration_ms": 14511.961721000262
+      },
+      {
+        "step": 6,
+        "duration_ms": 14514.506598003209
+      },
+      {
+        "step": 7,
+        "duration_ms": 14507.658950984478
+      },
+      {
+        "step": 8,
+        "duration_ms": 14511.986106983386
+      },
+      {
+        "step": 9,
+        "duration_ms": 14506.199294002727
+      },
+      {
+        "step": 10,
+        "duration_ms": 14507.606127066538
+      },
+      {
+        "step": 11,
+        "duration_ms": 14507.796659017913
+      },
+      {
+        "step": 12,
+        "duration_ms": 14505.868376931176
+      },
+      {
+        "step": 13,
+        "duration_ms": 14502.267900970764
+      },
+      {
+        "step": 14,
+        "duration_ms": 14504.167882027104
+      },
+      {
+        "step": 15,
+        "duration_ms": 14498.683318961412
+      },
+      {
+        "step": 16,
+        "duration_ms": 14496.689540101215
+      },
+      {
+        "step": 17,
+        "duration_ms": 14496.758474968374
+      },
+      {
+        "step": 18,
+        "duration_ms": 14498.737336019985
+      },
+      {
+        "step": 19,
+        "duration_ms": 14502.208108897321
+      },
+      {
+        "step": 20,
+        "duration_ms": 14494.747382006608
+      },
+      {
+        "step": 21,
+        "duration_ms": 14489.622234017588
+      },
+      {
+        "step": 22,
+        "duration_ms": 14491.90634698607
+      },
+      {
+        "step": 23,
+        "duration_ms": 14498.312173993327
+      },
+      {
+        "step": 24,
+        "duration_ms": 14490.541119943373
+      },
+      {
+        "step": 25,
+        "duration_ms": 14490.193132078275
+      },
+      {
+        "step": 26,
+        "duration_ms": 14491.05894297827
+      },
+      {
+        "step": 27,
+        "duration_ms": 14495.890120975673
+      },
+      {
+        "step": 28,
+        "duration_ms": 14492.479884065688
+      },
+      {
+        "step": 29,
+        "duration_ms": 14485.452224034816
+      },
+      {
+        "step": 30,
+        "duration_ms": 14486.064948956482
+      },
+      {
+        "step": 31,
+        "duration_ms": 14489.700497011654
+      },
+      {
+        "step": 32,
+        "duration_ms": 14487.347973044962
+      },
+      {
+        "step": 33,
+        "duration_ms": 14489.586454001255
+      },
+      {
+        "step": 34,
+        "duration_ms": 14486.939648049884
+      },
+      {
+        "step": 35,
+        "duration_ms": 14484.845102997497
+      },
+      {
+        "step": 36,
+        "duration_ms": 14483.578248997219
+      },
+      {
+        "step": 37,
+        "duration_ms": 14486.434672027826
+      },
+      {
+        "step": 38,
+        "duration_ms": 14484.175359946676
+      },
+      {
+        "step": 39,
+        "duration_ms": 14483.380773919635
+      },
+      {
+        "step": 40,
+        "duration_ms": 14481.614082003944
+      },
+      {
+        "step": 41,
+        "duration_ms": 14483.539713080972
+      },
+      {
+        "step": 42,
+        "duration_ms": 14482.722398010083
+      },
+      {
+        "step": 43,
+        "duration_ms": 14476.142007042654
+      },
+      {
+        "step": 44,
+        "duration_ms": 14478.984917048365
+      },
+      {
+        "step": 45,
+        "duration_ms": 14476.423708954826
+      },
+      {
+        "step": 46,
+        "duration_ms": 14477.853290038183
+      },
+      {
+        "step": 47,
+        "duration_ms": 14481.430952087976
+      },
+      {
+        "step": 48,
+        "duration_ms": 14473.996507003903
+      }
+    ],
+    "memory_checkpoints": {
+      "before_forward": {
+        "allocated_mb": 4995.17,
+        "reserved_mb": 5050.0,
+        "peak_allocated_mb": 4995.17,
+        "peak_reserved_mb": 5050.0,
+        "peak_host_anon_mb": 0.0
+      },
+      "after_forward": {
+        "allocated_mb": 5234.55,
+        "reserved_mb": 5314.0,
+        "peak_allocated_mb": 70607.41,
+        "peak_reserved_mb": 72604.0,
+        "peak_host_anon_mb": 0.0
+      },
+      "load_peak": {
+        "allocated_mb": 3768.53,
+        "reserved_mb": 5414.0,
+        "peak_allocated_mb": 4995.17,
+        "peak_reserved_mb": 5050.0,
+        "peak_host_anon_mb": 0.0
+      },
+      "runtime_peak": {
+        "allocated_mb": 3768.53,
+        "reserved_mb": 5414.0,
+        "peak_allocated_mb": 70607.41,
+        "peak_reserved_mb": 72604.0,
+        "peak_host_anon_mb": 0.0
+      },
+      "warmup_peak": {
+        "allocated_mb": 3768.53,
+        "reserved_mb": 5414.0,
+        "peak_allocated_mb": 70607.41,
+        "peak_reserved_mb": 0.0,
+        "peak_host_anon_mb": 0.0
+      }
+    },
+    "meta": {
+      "prompt": "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+      "model": "/mnt/workspace/MiniMax-H3-SGLang"
+    }
+  }
+}

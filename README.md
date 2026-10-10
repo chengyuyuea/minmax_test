@@ -21,8 +21,13 @@
 | diffusers | Turbo LoRA v4 | 9 / 8 | 130.2 s | 568.0 s | 与 50-sigma raw 不同采样口径 |
 | diffusers | Sage + Turbo LoRA v4 | 9 / 8 | 118.2 s | 557.7 s | 与 50-sigma raw 不同采样口径 |
 | SGLang | 流式 offload raw | 50 / 49 | 4824.6 s | 5147.7 s | SGLang 参考 |
-| SGLang | 52/52 block 常驻 raw | 50 / 49 | 833.3 s | 1148.8 s | 与 SGLang raw 逐字节一致 |
-| SGLang | 常驻 + Cache-DiT 0.24 | 50 / 49 调度 step | 335.7 s | 651.5 s | 有损 |
+| SGLang | 52/52 block 常驻 raw（FA3） | 50 / 49 | 833.3 s | 1148.8 s | 与 SGLang raw 逐字节一致 |
+| SGLang | 常驻 + Sage raw | 50 / 49 | 809.6 s | 1124.5 s | 相对 FA3 raw 21.05 dB，偏差未定位 |
+| SGLang | 常驻 + Cache-DiT 0.24/MC3 | 50 / 16 次完整前向 | 335.7 s | 651.5 s | 有损，20.71 dB |
+| SGLang | 常驻 + Sage + Cache-DiT 0.24/MC6 | 50 / 12 次完整前向 | 284.3 s | 601.6 s | 有损，18.39 dB |
+| SGLang | 常驻 + Sage + Cache-DiT 0.32/MC9 | 50 / 11 次完整前向 | 255.8 s | 574.5 s | 有损，18.37 dB |
+
+SGLang 的 PSNR 以 SGLang raw 为参考；不同框架的质量数字不能直接排名。
 
 ### 吞吐结果
 
@@ -31,8 +36,9 @@
 ### 结论
 
 - diffusers：Sage 缩短单次前向；FBCache 减少完整前向；Turbo LoRA 使用 9-sigma/8-forward；阶段主序批处理摊薄加载。
-- SGLang：52/52 block 常驻消除逐 step 权重读取；Cache-DiT 进一步加速但有损。
-- 两类框架封装不同，加速实现不能直接互换。具体边界见推理指南 §9.3。
+- SGLang：52/52 block 常驻消除逐 step 权重读取，且无损；服务级 Sage 先替换默认 FA3，但因 FA3 已很快，完整 step 只再快 3.1%；Cache-DiT 随后减少完整前向且有损，其主杠杆是连续命中上限 MC，MC3 下调阈值无效。
+- 最快 50-sigma 单视频两边基本持平：diffusers Sage + FBCache 0.25 为 569.5 s，SGLang Sage + Cache-DiT 0.32/MC9 为 574.5 s。
+- 两类框架封装不同，加速实现不能直接互换。具体边界与组合矩阵见推理指南 §9.3–§9.5。
 - `torch.compile` 组合测试出现 2/5 黑帧，不采用。
 
 ## 仓库结构
@@ -114,26 +120,33 @@ python3 scripts/run_h3.py --steps 9 --seed 0 \
 
 ### SGLang 全 DiT 常驻
 
-SGLang 命令固定为 1344×768、124 帧、24 fps、50 个 sigma 点（49 次 DiT 前向）、seed 0；完整结果见指南 §15.3。
+SGLang 命令固定为 1344×768、124 帧、24 fps、50 个 sigma 点（49 个调度 step）、seed 0；run ID 按命名规则自动生成。完整结果见指南 §15。
 
 ```bash
-python3 scripts/run_sglang_h3.py --drop-page-cache \
-  --tag sglang_resident50 --dit-resident-layers 50
+# 常驻 raw（FA3）
+python3 scripts/run_sglang_h3.py --drop-page-cache --dit-resident-layers 50
 
-python3 scripts/run_sglang_h3.py --drop-page-cache \
-  --tag sglang_resident50_cachedit024 --dit-resident-layers 50 \
+# 常驻 + Cache-DiT 默认 0.24/MC3
+python3 scripts/run_sglang_h3.py --drop-page-cache --dit-resident-layers 50 \
   --cache-dit --cache-dit-threshold 0.24
+
+# 常驻 + 服务级 Sage + Cache-DiT 0.32/MC9（SGLang 最快）
+python3 scripts/run_sglang_h3.py --drop-page-cache --dit-resident-layers 50 \
+  --dit-attention-backend sage_attn \
+  --cache-dit --cache-dit-threshold 0.32 --cache-dit-mc 9
 ```
+
+Sage 必须用服务级 `--dit-attention-backend`；请求级 `--attention-backend sage_attn` 会被 H3 拒绝。
 
 ## 运行产物与命名
 
-run ID 由 `scripts/run_naming.py` 自动生成，格式为：
+run ID 由 `scripts/run_naming.py`（diffusers）和 `scripts/run_sglang_h3.py`（SGLang）自动生成，格式为：
 
 ```text
 <method>-<YYYYMMDD>-<HHMMSS>
 ```
 
-例如 `batch20_sage_fbcache025-20260928-114735`。两类框架通过名称区分：diffusers 使用方法名（Turbo 为 `turbolora_v4_8eval-*`），SGLang 使用 `sglang_*`；两套缓存分别命名为 diffusers `fbcache` 和 SGLang `cachedit`。`--drop-page-cache` 是测量条件，不进入名称，是否成功执行记录在 `run.json.page_cache.dropped`。
+`<method>` 按固定顺序拼接，未启用的段省略：基本架构（`diffusers` / `turbolora` / `sglang`）→ `batch<N>` → `sage` → `fbcache<ttt>`（diffusers）或 `cachedit<ttt>`（SGLang，阈值 ×100 补三位）→ 其他（如 `resident50`、`mc9`）。没有加速手段时为 `<架构>_raw`。例如 `diffusers_batch20_sage_fbcache025-20260928-114735`、`sglang_sage_cachedit032_resident50_mc9-20261009-224947`。`--drop-page-cache` 是测量条件，不进入名称，是否成功执行记录在 `run.json.page_cache.dropped`。旧 ID 保留在 `run.json.renamed_from`。
 
 每次运行通常生成：
 
@@ -154,10 +167,10 @@ outputs/<run-id>/video.mp4
 
 ```bash
 python3 scripts/stage_table.py \
-  raw-20260929-103055 \
-  fbcache025-20260928-203358 \
-  sage-20260928-165335 \
-  sage_fbcache025-20260928-204352
+  diffusers_raw-20260929-103055 \
+  diffusers_fbcache025-20260928-203358 \
+  diffusers_sage-20260928-165335 \
+  diffusers_sage_fbcache025-20260928-204352
 ```
 
 汇总运行结果：
@@ -170,10 +183,10 @@ python3 scripts/h3_report.py --sort pervideo
 
 ```bash
 python3 scripts/h3_report.py \
-  --quality-reference raw-20260929-103055 \
-  --quality-target sage-20260928-165335 \
-  --quality-target fbcache025-20260928-203358 \
-  --quality-target sage_fbcache025-20260928-204352
+  --quality-reference diffusers_raw-20260929-103055 \
+  --quality-target diffusers_sage-20260928-165335 \
+  --quality-target diffusers_fbcache025-20260928-203358 \
+  --quality-target diffusers_sage_fbcache025-20260928-204352
 ```
 
 可通过 `--min-psnr`、`--min-ssim`、`--min-audio-snr` 设置业务阈值；未提供阈值时脚本只报告测量值。
@@ -183,4 +196,5 @@ python3 scripts/h3_report.py \
 - 性能与质量数据来自单张 A100-80GB；正式主线均覆盖 T2VA 768p/124 帧，其中标准 diffusers 与 SGLang 为 50 个 sigma 点，Turbo LoRA 独立主线为 9 个 sigma 点（8 次前向）。
 - FBCache/Cache-DiT 质量评估目前只覆盖一个主 prompt，阈值选择仍需业务样本集验证。
 - FL2VA 仅做过功能验证；Ref2VA、多卡、TF32 和仅 compile 的独立消融未完成。Turbo LoRA 尚未在 SGLang runtime 内复核，SGLang warm-server 多请求吞吐也未测试。
+- SGLang Sage 相对 FA3 的成片偏差（21.05 dB）明显大于 diffusers Sage 相对 SDPA（29.11 dB），原因未定位。
 - diffusers 使用统一 cold-load 口径，SGLang 使用实测 wrapper cold wall；跨 backend 可比较端到端耗时，不应强行对齐内部阶段。

@@ -1,0 +1,603 @@
+{
+  "run_id": "diffusers_batch10_sage_fbcache025-20260928-111414",
+  "argv": [
+    "scripts/run_h3.py",
+    "--prompt-file",
+    "scripts/batch_prompts_20.json",
+    "--batch-limit",
+    "10",
+    "--steps",
+    "50",
+    "--cache-dit",
+    "--cache-dit-threshold",
+    "0.25",
+    "--tag",
+    "batch10-sage-fbc025",
+    "--run-id",
+    "diffusers_batch10_sage_fbcache025-20260928-111414"
+  ],
+  "env": {
+    "hostname": "dsw-1060989-6cb85bf96c-j97fp",
+    "python": "3.12.13",
+    "torch": "2.13.0+cu130",
+    "torch_cuda": "13.0",
+    "cudnn": 92000,
+    "attn_backend": "sage",
+    "diffusers": "0.40.0",
+    "gpu": "NVIDIA A100-SXM4-80GB",
+    "gpu_capability": "8.0",
+    "driver": "550.163.01",
+    "flash_attn": "2.8.3",
+    "sageattention": "2.2.0",
+    "triton": "3.7.1",
+    "host_mem_total_gib": 122.8,
+    "host_mem_available_gib": 117.3,
+    "host_cached_gib": 111.7
+  },
+  "started_at": "2026-09-28T11:14:14",
+  "hz": 2.0,
+  "wall_seconds": 1975.8,
+  "load_seconds_total": 266.4,
+  "run_seconds_total": 1653.3,
+  "overhead_seconds": 56.1,
+  "phase_seconds": {
+    "init": 0.2,
+    "load:before_encode": 0.0,
+    "run:before_encode:0": 0.0,
+    "run:before_encode:1": 0.0,
+    "run:before_encode:2": 0.0,
+    "run:before_encode:3": 0.0,
+    "run:before_encode:4": 0.0,
+    "run:before_encode:5": 0.0,
+    "run:before_encode:6": 0.0,
+    "run:before_encode:7": 0.0,
+    "run:before_encode:8": 0.0,
+    "run:before_encode:9": 0.0,
+    "free:before_encode": 0.3,
+    "load:text_encoder": 104.9,
+    "run:text_encoder:0": 0.9,
+    "run:text_encoder:1": 0.1,
+    "run:text_encoder:2": 0.1,
+    "run:text_encoder:3": 0.1,
+    "run:text_encoder:4": 0.1,
+    "run:text_encoder:5": 0.1,
+    "run:text_encoder:6": 0.1,
+    "run:text_encoder:7": 0.1,
+    "run:text_encoder:8": 0.1,
+    "run:text_encoder:9": 0.1,
+    "free:text_encoder": 0.3,
+    "load:vae_encoder": 3.8,
+    "run:vae_encoder:0": 0.0,
+    "run:vae_encoder:1": 0.0,
+    "run:vae_encoder:2": 0.0,
+    "run:vae_encoder:3": 0.0,
+    "run:vae_encoder:4": 0.0,
+    "run:vae_encoder:5": 0.0,
+    "run:vae_encoder:6": 0.0,
+    "run:vae_encoder:7": 0.0,
+    "run:vae_encoder:8": 0.0,
+    "run:vae_encoder:9": 0.0,
+    "free:vae_encoder": 0.2,
+    "load:denoise": 154.5,
+    "run:denoise:0": 136.9,
+    "run:denoise:1": 146.2,
+    "run:denoise:2": 146.2,
+    "run:denoise:3": 146.1,
+    "run:denoise:4": 146.0,
+    "run:denoise:5": 146.1,
+    "run:denoise:6": 146.0,
+    "run:denoise:7": 136.6,
+    "run:denoise:8": 146.1,
+    "run:denoise:9": 146.0,
+    "free:denoise": 0.2,
+    "load:decode": 3.2,
+    "run:decode:0": 19.4,
+    "encode_mp4:0": 3.8,
+    "run:decode:1": 17.8,
+    "encode_mp4:1": 2.9,
+    "run:decode:2": 17.6,
+    "encode_mp4:2": 2.5,
+    "run:decode:3": 17.6,
+    "encode_mp4:3": 3.5,
+    "run:decode:4": 17.6,
+    "encode_mp4:4": 2.5,
+    "run:decode:5": 17.7,
+    "encode_mp4:5": 3.6,
+    "run:decode:6": 17.6,
+    "encode_mp4:6": 2.8,
+    "run:decode:7": 17.6,
+    "encode_mp4:7": 2.9,
+    "run:decode:8": 17.7,
+    "encode_mp4:8": 2.8,
+    "run:decode:9": 17.6,
+    "encode_mp4:9": 3.8,
+    "free:decode": 0.3
+  },
+  "phase_io": {
+    "init": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.9,
+      "cached_after_gib": 111.9
+    },
+    "load:before_encode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.9,
+      "cached_after_gib": 111.9
+    },
+    "run:before_encode:0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.9,
+      "cached_after_gib": 111.9
+    },
+    "run:before_encode:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.9,
+      "cached_after_gib": 111.9
+    },
+    "run:before_encode:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.9,
+      "cached_after_gib": 111.9
+    },
+    "run:before_encode:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.9,
+      "cached_after_gib": 111.9
+    },
+    "run:before_encode:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.9,
+      "cached_after_gib": 111.9
+    },
+    "run:before_encode:5": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.9,
+      "cached_after_gib": 111.9
+    },
+    "run:before_encode:6": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.9,
+      "cached_after_gib": 111.9
+    },
+    "run:before_encode:7": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.9,
+      "cached_after_gib": 111.9
+    },
+    "run:before_encode:8": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.9,
+      "cached_after_gib": 111.9
+    },
+    "run:before_encode:9": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.9,
+      "cached_after_gib": 111.9
+    },
+    "free:before_encode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.9,
+      "cached_after_gib": 111.9
+    },
+    "load:text_encoder": {
+      "read_gib": 34.63,
+      "major_faults": 161043,
+      "cached_before_gib": 111.9,
+      "cached_after_gib": 118.2
+    },
+    "run:text_encoder:0": {
+      "read_gib": 0.01,
+      "major_faults": 64,
+      "cached_before_gib": 118.2,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:5": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:6": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:7": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:8": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:text_encoder:9": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "free:text_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "load:vae_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 11,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:5": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:6": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:7": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:8": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:vae_encoder:9": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "free:vae_encoder": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "load:denoise": {
+      "read_gib": 53.09,
+      "major_faults": 248015,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 118.0
+    },
+    "run:denoise:0": {
+      "read_gib": 0.01,
+      "major_faults": 151,
+      "cached_before_gib": 118.0,
+      "cached_after_gib": 117.8
+    },
+    "run:denoise:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.8,
+      "cached_after_gib": 117.5
+    },
+    "run:denoise:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.5,
+      "cached_after_gib": 117.5
+    },
+    "run:denoise:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.5,
+      "cached_after_gib": 117.2
+    },
+    "run:denoise:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.2,
+      "cached_after_gib": 117.0
+    },
+    "run:denoise:5": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.0,
+      "cached_after_gib": 116.6
+    },
+    "run:denoise:6": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 116.6,
+      "cached_after_gib": 116.6
+    },
+    "run:denoise:7": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 116.6,
+      "cached_after_gib": 116.6
+    },
+    "run:denoise:8": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 116.6,
+      "cached_after_gib": 116.6
+    },
+    "run:denoise:9": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 116.6,
+      "cached_after_gib": 116.7
+    },
+    "free:denoise": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 116.7,
+      "cached_after_gib": 116.7
+    },
+    "load:decode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 116.7,
+      "cached_after_gib": 116.6
+    },
+    "run:decode:0": {
+      "read_gib": 0.01,
+      "major_faults": 143,
+      "cached_before_gib": 116.6,
+      "cached_after_gib": 112.8
+    },
+    "encode_mp4:0": {
+      "read_gib": 0.01,
+      "major_faults": 0,
+      "cached_before_gib": 112.8,
+      "cached_after_gib": 112.8
+    },
+    "run:decode:1": {
+      "read_gib": 0.0,
+      "major_faults": 3,
+      "cached_before_gib": 112.8,
+      "cached_after_gib": 111.7
+    },
+    "encode_mp4:1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "run:decode:2": {
+      "read_gib": 0.0,
+      "major_faults": 1,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "encode_mp4:2": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "run:decode:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "encode_mp4:3": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "run:decode:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "encode_mp4:4": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "run:decode:5": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "encode_mp4:5": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "run:decode:6": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "encode_mp4:6": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "run:decode:7": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "encode_mp4:7": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "run:decode:8": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "encode_mp4:8": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "run:decode:9": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "encode_mp4:9": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    },
+    "free:decode": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 111.7,
+      "cached_after_gib": 111.7
+    }
+  },
+  "step_ms_median": 324.0,
+  "step_ms_mean": 3031.1,
+  "steps_counted": 490,
+  "peak_torch_alloc_gib": 69.57,
+  "peak_nvml_used_gib": 73.73,
+  "peak_host_used_gib": 9.6,
+  "tag": "batch10-sage-fbc025",
+  "args": {
+    "prompt": null,
+    "image": null,
+    "last_image": null,
+    "height": 768,
+    "width": 1344,
+    "num_frames": 124,
+    "steps": 50,
+    "seed": 0,
+    "out": "/mnt/workspace/outputs/diffusers_batch10_sage_fbcache025-20260928-111414/video.mp4",
+    "outputs_dir": "/mnt/workspace/outputs",
+    "model_dir": "/mnt/workspace/MiniMax-H3",
+    "lora": null,
+    "lora_scale": 1.0,
+    "run_id": "diffusers_batch10_sage_fbcache025-20260928-111414",
+    "runs_dir": "/mnt/workspace/runs",
+    "monitor_hz": 2.0,
+    "tag": "batch10-sage-fbc025",
+    "no_load_opt": false,
+    "parallel_load": false,
+    "profile": false,
+    "cache_dit": true,
+    "cache_dit_threshold": 0.25,
+    "repeat": 1,
+    "reuse_text_embeds": false,
+    "compile": false,
+    "compile_fullgraph": false,
+    "prompt_file": "scripts/batch_prompts_20.json",
+    "batch_limit": 10,
+    "tf32": false,
+    "generator": null
+  },
+  "output": "/mnt/workspace/outputs/diffusers_batch10_sage_fbcache025-20260928-111414/video-0.mp4",
+  "outputs": [
+    "/mnt/workspace/outputs/diffusers_batch10_sage_fbcache025-20260928-111414/video-0.mp4",
+    "/mnt/workspace/outputs/diffusers_batch10_sage_fbcache025-20260928-111414/video-1.mp4",
+    "/mnt/workspace/outputs/diffusers_batch10_sage_fbcache025-20260928-111414/video-2.mp4",
+    "/mnt/workspace/outputs/diffusers_batch10_sage_fbcache025-20260928-111414/video-3.mp4",
+    "/mnt/workspace/outputs/diffusers_batch10_sage_fbcache025-20260928-111414/video-4.mp4",
+    "/mnt/workspace/outputs/diffusers_batch10_sage_fbcache025-20260928-111414/video-5.mp4",
+    "/mnt/workspace/outputs/diffusers_batch10_sage_fbcache025-20260928-111414/video-6.mp4",
+    "/mnt/workspace/outputs/diffusers_batch10_sage_fbcache025-20260928-111414/video-7.mp4",
+    "/mnt/workspace/outputs/diffusers_batch10_sage_fbcache025-20260928-111414/video-8.mp4",
+    "/mnt/workspace/outputs/diffusers_batch10_sage_fbcache025-20260928-111414/video-9.mp4"
+  ],
+  "fps": 24,
+  "batch_size": 10,
+  "finished_at": "2026-09-28T11:47:09",
+  "renamed_from": [
+    "batch10-20260928-b1",
+    "batch10_sage_fbcache025-20260928-111414"
+  ]
+}

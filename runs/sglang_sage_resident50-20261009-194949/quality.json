@@ -1,0 +1,20 @@
+{
+  "reference_run_id": "sglang_resident50-20261008-120139",
+  "comparison_basis": "encoded MP4; decoded video and 32 kHz stereo audio",
+  "thresholds": {
+    "min_psnr_db": null,
+    "min_ssim": null,
+    "min_audio_snr_db": null
+  },
+  "results": [
+    {
+      "run_id": "sglang_sage_resident50-20261009-194949",
+      "reference_run_id": "sglang_resident50-20261008-120139",
+      "video_psnr_db": 21.047384,
+      "video_ssim": 0.810598,
+      "audio_snr_db": 13.782901,
+      "audio_samples": 331776,
+      "passed": null
+    }
+  ]
+}

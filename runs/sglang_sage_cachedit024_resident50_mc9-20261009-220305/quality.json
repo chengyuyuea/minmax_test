@@ -1,0 +1,29 @@
+{
+  "reference_run_id": "sglang_resident50-20261008-120139",
+  "comparison_basis": "encoded MP4; decoded video and 32 kHz stereo audio",
+  "thresholds": {
+    "min_psnr_db": null,
+    "min_ssim": null,
+    "min_audio_snr_db": null
+  },
+  "results": [
+    {
+      "run_id": "sglang_sage_cachedit024_resident50_mc9-20261009-220305",
+      "reference_run_id": "sglang_resident50-20261008-120139",
+      "video_psnr_db": 18.400321,
+      "video_ssim": 0.734964,
+      "audio_snr_db": 4.81474,
+      "audio_samples": 331776,
+      "passed": null
+    }
+  ],
+  "vs_same_cachedit_fa": {
+    "run_id": "sglang_sage_cachedit024_resident50_mc9-20261009-220305",
+    "reference_run_id": "sglang_cachedit024_resident50_mc9-20261009-182346",
+    "video_psnr_db": 23.493933,
+    "video_ssim": 0.849982,
+    "audio_snr_db": 8.433337,
+    "audio_samples": 331776,
+    "passed": null
+  }
+}

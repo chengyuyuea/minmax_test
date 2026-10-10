@@ -1,0 +1,437 @@
+{
+  "run_id": "sglang_sage_cachedit032_resident50_mc9-20261009-224947",
+  "argv": [
+    "scripts/run_sglang_h3.py",
+    "--dit-resident-layers",
+    "50",
+    "--dit-attention-backend",
+    "sage_attn",
+    "--cache-dit",
+    "--cache-dit-threshold",
+    "0.32",
+    "--cache-dit-mc",
+    "9",
+    "--drop-page-cache"
+  ],
+  "env": {
+    "hostname": "dsw-1090486-84776d7cdc-v6phm",
+    "python": "3.12.13",
+    "torch": "2.13.0+cu130",
+    "torch_cuda": "13.0",
+    "cudnn": 92000,
+    "attn_backend": null,
+    "diffusers": "0.40.0",
+    "gpu": "NVIDIA A100-SXM4-80GB",
+    "gpu_capability": "8.0",
+    "driver": "550.163.01",
+    "flash_attn": "2.8.3",
+    "sageattention": "2.2.0",
+    "triton": "3.7.1",
+    "host_mem_total_gib": 122.8,
+    "host_mem_available_gib": 119.3,
+    "host_cached_gib": 32.2
+  },
+  "started_at": "2026-10-09T22:49:49",
+  "hz": 2.0,
+  "wall_seconds": 574.5,
+  "load_seconds_total": 285.659,
+  "run_seconds_total": 285.81,
+  "overhead_seconds": 574.5,
+  "phase_seconds": {
+    "load:pipeline": 285.659,
+    "run:text_encoder": 5.24,
+    "run:vae_encoder": 0.001,
+    "run:prepare": 0.023,
+    "run:denoise": 255.834,
+    "run:decode": 24.553
+  },
+  "phase_io": {
+    "sglang:subprocess": {
+      "read_gib": 115.72,
+      "major_faults": 0,
+      "cached_before_gib": 3.7,
+      "cached_after_gib": 32.2
+    }
+  },
+  "step_ms_median": 302.2,
+  "step_ms_mean": 5203.8,
+  "steps_counted": 49,
+  "peak_torch_alloc_gib": 72.48,
+  "peak_nvml_used_gib": 74.13,
+  "peak_host_used_gib": 85.0,
+  "status": "success",
+  "backend": "sglang",
+  "args": {
+    "run_id": null,
+    "tag": null,
+    "model_path": "/mnt/workspace/MiniMax-H3-SGLang",
+    "runs_dir": "/mnt/workspace/runs",
+    "outputs_dir": "/mnt/workspace/outputs",
+    "prompt": "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+    "seed": 0,
+    "steps": 50,
+    "duration_seconds": 5.0,
+    "drop_page_cache": true,
+    "cache_dit": true,
+    "cache_dit_threshold": 0.32,
+    "cache_dit_mc": 9,
+    "attention_backend": null,
+    "dit_attention_backend": "sage_attn",
+    "compile": false,
+    "dit_resident_layers": 50.0,
+    "dit_prefetch_size": 0.0,
+    "monitor_hz": 2.0
+  },
+  "sampling": {
+    "model_path": "/mnt/workspace/MiniMax-H3-SGLang",
+    "model_variant": "fl2va",
+    "pipeline_class_name": "MiniMaxH3Pipeline",
+    "backend": "sglang",
+    "performance_mode": "memory",
+    "layerwise_offload_components": [
+      "dit",
+      "text_encoder",
+      "vae"
+    ],
+    "layerwise_resident_layers": {
+      "video_vae": 36
+    },
+    "dit_layerwise_resident_layers": 50.0,
+    "dit_offload_prefetch_size": 0.0,
+    "enable_torch_compile": false,
+    "component_paths": {
+      "transformer": "/mnt/workspace/MiniMax-H3/transformer"
+    },
+    "prompt": "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+    "task": "t2va",
+    "conditions": [],
+    "target": {
+      "short_edge": 768,
+      "aspect_ratio": "16:9",
+      "duration_seconds": 5.0
+    },
+    "num_inference_steps": 50,
+    "flow_shift": 12.0,
+    "audio_flow_shift": 3.0,
+    "seed": 0,
+    "save_output": true,
+    "output_path": "/mnt/workspace/outputs/sglang_sage_cachedit032_resident50_mc9-20261009-224947",
+    "output_file_name": "video.mp4",
+    "enable_cache_dit": true,
+    "cache_dit_params": {
+      "residual_diff_threshold": 0.32,
+      "max_continuous_cached_steps": 9
+    },
+    "component_attention_backends": {
+      "transformer": "sage_attn"
+    }
+  },
+  "page_cache": {
+    "dropped": true,
+    "files": 236,
+    "cached_before_gib": 31.08,
+    "cached_after_gib": 3.67,
+    "seconds": 2.01
+  },
+  "output": "/mnt/workspace/outputs/sglang_sage_cachedit032_resident50_mc9-20261009-224947/video.mp4",
+  "outputs": [
+    "/mnt/workspace/outputs/sglang_sage_cachedit032_resident50_mc9-20261009-224947/video.mp4"
+  ],
+  "batch_size": 1,
+  "returncode": 0,
+  "process_seconds": 571.469,
+  "sglang_request_seconds": 285.81,
+  "sglang_perf": {
+    "timestamp": "2026-10-09T14:59:16.941564+00:00",
+    "request_id": "4d2c051e-a35a-425c-ae33-0909e27fc1f2",
+    "commit_hash": "da0e5477b74720eee2f5fe2dea23b6c6d0d9d91d",
+    "tag": "cli_generate",
+    "total_duration_ms": 285810.0497580599,
+    "steps": [
+      {
+        "name": "InputValidationStage",
+        "duration_ms": 0.06017601117491722
+      },
+      {
+        "name": "MiniMaxH3PartitionAdmissionStage",
+        "duration_ms": 0.022289925254881382
+      },
+      {
+        "name": "MiniMaxH3TextEncodingStage",
+        "duration_ms": 5239.957942976616
+      },
+      {
+        "name": "MiniMaxH3VisualEncodingStage",
+        "duration_ms": 0.5603650351986289
+      },
+      {
+        "name": "MiniMaxH3AudioEncodingStage",
+        "duration_ms": 0.027553061954677105
+      },
+      {
+        "name": "MiniMaxH3LatentPreparationStage",
+        "duration_ms": 22.738034022040665
+      },
+      {
+        "name": "MiniMaxH3TimestepPreparationStage",
+        "duration_ms": 0.29441097285598516
+      },
+      {
+        "name": "MiniMaxH3DenoisingStage",
+        "duration_ms": 255833.67126993835
+      },
+      {
+        "name": "MiniMaxH3DecodingStage",
+        "duration_ms": 24552.539838012308
+      },
+      {
+        "name": "Scheduler.return_result.spill_arrays",
+        "duration_ms": 0.0403369776904583
+      },
+      {
+        "name": "SchedulerClient.materialize_file_refs",
+        "duration_ms": 0.0066229840740561485
+      }
+    ],
+    "denoise_steps_ms": [
+      {
+        "step": 0,
+        "duration_ms": 101384.52941202559
+      },
+      {
+        "step": 1,
+        "duration_ms": 14322.89828103967
+      },
+      {
+        "step": 2,
+        "duration_ms": 14548.475039075129
+      },
+      {
+        "step": 3,
+        "duration_ms": 14544.939002022147
+      },
+      {
+        "step": 4,
+        "duration_ms": 11599.362435052171
+      },
+      {
+        "step": 5,
+        "duration_ms": 302.1540909539908
+      },
+      {
+        "step": 6,
+        "duration_ms": 302.6735440362245
+      },
+      {
+        "step": 7,
+        "duration_ms": 302.49017698224634
+      },
+      {
+        "step": 8,
+        "duration_ms": 302.23836994264275
+      },
+      {
+        "step": 9,
+        "duration_ms": 3237.7729800064117
+      },
+      {
+        "step": 10,
+        "duration_ms": 11590.800344944
+      },
+      {
+        "step": 11,
+        "duration_ms": 302.4469190277159
+      },
+      {
+        "step": 12,
+        "duration_ms": 302.20563896000385
+      },
+      {
+        "step": 13,
+        "duration_ms": 302.07734694704413
+      },
+      {
+        "step": 14,
+        "duration_ms": 302.046641940251
+      },
+      {
+        "step": 15,
+        "duration_ms": 3235.7440770138055
+      },
+      {
+        "step": 16,
+        "duration_ms": 11590.924350079149
+      },
+      {
+        "step": 17,
+        "duration_ms": 302.11404990404844
+      },
+      {
+        "step": 18,
+        "duration_ms": 301.61105701699853
+      },
+      {
+        "step": 19,
+        "duration_ms": 301.8428640207276
+      },
+      {
+        "step": 20,
+        "duration_ms": 302.0824199775234
+      },
+      {
+        "step": 21,
+        "duration_ms": 302.2494169417769
+      },
+      {
+        "step": 22,
+        "duration_ms": 302.2242640145123
+      },
+      {
+        "step": 23,
+        "duration_ms": 302.27240500971675
+      },
+      {
+        "step": 24,
+        "duration_ms": 302.44928400497884
+      },
+      {
+        "step": 25,
+        "duration_ms": 3236.5614660084248
+      },
+      {
+        "step": 26,
+        "duration_ms": 11587.857506005093
+      },
+      {
+        "step": 27,
+        "duration_ms": 302.37270309589803
+      },
+      {
+        "step": 28,
+        "duration_ms": 302.12183797266334
+      },
+      {
+        "step": 29,
+        "duration_ms": 301.5543060610071
+      },
+      {
+        "step": 30,
+        "duration_ms": 301.72797199338675
+      },
+      {
+        "step": 31,
+        "duration_ms": 302.09375999402255
+      },
+      {
+        "step": 32,
+        "duration_ms": 302.14058700948954
+      },
+      {
+        "step": 33,
+        "duration_ms": 302.3311699507758
+      },
+      {
+        "step": 34,
+        "duration_ms": 302.22865904215723
+      },
+      {
+        "step": 35,
+        "duration_ms": 3231.875165947713
+      },
+      {
+        "step": 36,
+        "duration_ms": 11588.866379926912
+      },
+      {
+        "step": 37,
+        "duration_ms": 301.9628180190921
+      },
+      {
+        "step": 38,
+        "duration_ms": 301.6005790559575
+      },
+      {
+        "step": 39,
+        "duration_ms": 301.45636992529035
+      },
+      {
+        "step": 40,
+        "duration_ms": 300.8404850261286
+      },
+      {
+        "step": 41,
+        "duration_ms": 300.881952047348
+      },
+      {
+        "step": 42,
+        "duration_ms": 300.4830760182813
+      },
+      {
+        "step": 43,
+        "duration_ms": 3233.7835479993373
+      },
+      {
+        "step": 44,
+        "duration_ms": 11584.62053607218
+      },
+      {
+        "step": 45,
+        "duration_ms": 299.29642600473017
+      },
+      {
+        "step": 46,
+        "duration_ms": 300.14559894334525
+      },
+      {
+        "step": 47,
+        "duration_ms": 3230.1796430256218
+      },
+      {
+        "step": 48,
+        "duration_ms": 11579.406763077714
+      }
+    ],
+    "memory_checkpoints": {
+      "before_forward": {
+        "allocated_mb": 4995.17,
+        "reserved_mb": 5050.0,
+        "peak_allocated_mb": 4995.17,
+        "peak_reserved_mb": 5050.0,
+        "peak_host_anon_mb": 0.0
+      },
+      "after_forward": {
+        "allocated_mb": 6008.92,
+        "reserved_mb": 6114.0,
+        "peak_allocated_mb": 72156.16,
+        "peak_reserved_mb": 74224.0,
+        "peak_host_anon_mb": 0.0
+      },
+      "load_peak": {
+        "allocated_mb": 4542.91,
+        "reserved_mb": 6214.0,
+        "peak_allocated_mb": 4995.17,
+        "peak_reserved_mb": 5050.0,
+        "peak_host_anon_mb": 0.0
+      },
+      "runtime_peak": {
+        "allocated_mb": 4542.91,
+        "reserved_mb": 6214.0,
+        "peak_allocated_mb": 72156.16,
+        "peak_reserved_mb": 74224.0,
+        "peak_host_anon_mb": 0.0
+      },
+      "warmup_peak": {
+        "allocated_mb": 4542.91,
+        "reserved_mb": 6214.0,
+        "peak_allocated_mb": 72156.16,
+        "peak_reserved_mb": 0.0,
+        "peak_host_anon_mb": 0.0
+      }
+    },
+    "meta": {
+      "prompt": "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+      "model": "/mnt/workspace/MiniMax-H3-SGLang"
+    }
+  },
+  "finished_at": "2026-10-09T22:59:24"
+}

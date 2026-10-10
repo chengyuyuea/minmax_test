@@ -45,8 +45,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--drop-page-cache", action="store_true")
     parser.add_argument("--cache-dit", action="store_true")
     parser.add_argument("--cache-dit-threshold", type=float, default=0.24)
+    parser.add_argument("--cache-dit-mc", type=int, default=None)
+    # Request-level override; MiniMax-H3 rejects it (no switchable attention layers).
     parser.add_argument(
         "--attention-backend",
+        choices=("fa", "torch_sdpa", "sage_attn", "sage_attn_3"),
+    )
+    # Server-level component backend, resolved when the DiT is loaded.
+    parser.add_argument(
+        "--dit-attention-backend",
         choices=("fa", "torch_sdpa", "sage_attn", "sage_attn_3"),
     )
     parser.add_argument("--compile", action="store_true")
@@ -57,21 +64,26 @@ def parse_args() -> argparse.Namespace:
 
 
 def method_name(args: argparse.Namespace) -> str:
+    # Order: framework, attention backend, cache, then other levers (resident, mc, ...).
     parts = ["sglang"]
     if args.attention_backend:
         parts.append(args.attention_backend.replace("_attn", ""))
+    if args.dit_attention_backend:
+        parts.append(args.dit_attention_backend.replace("_attn", ""))
     if args.cache_dit:
         parts.append(f"cachedit{round(args.cache_dit_threshold * 100):03d}")
-    if args.compile:
-        parts.append("compile")
     if args.dit_resident_layers:
         value = args.dit_resident_layers
         label = str(int(value)) if value >= 1 else str(value).replace(".", "p")
         parts.append(f"resident{label}")
+    if args.cache_dit and args.cache_dit_mc is not None:
+        parts.append(f"mc{args.cache_dit_mc}")
     if args.dit_prefetch_size:
         value = args.dit_prefetch_size
         label = str(int(value)) if value >= 1 else str(value).replace(".", "p")
         parts.append(f"prefetch{label}")
+    if args.compile:
+        parts.append("compile")
     if args.steps != 50:
         parts.append(f"steps{args.steps}")
     if len(parts) == 1:
@@ -171,10 +183,16 @@ def sglang_config(args: argparse.Namespace, output_file: Path) -> dict:
         config["cache_dit_params"] = {
             "residual_diff_threshold": args.cache_dit_threshold
         }
+        if args.cache_dit_mc is not None:
+            config["cache_dit_params"]["max_continuous_cached_steps"] = args.cache_dit_mc
     else:
         config["enable_cache_dit"] = False
     if args.attention_backend:
         config["attention_backend_override"] = args.attention_backend
+    if args.dit_attention_backend:
+        config["component_attention_backends"] = {
+            "transformer": args.dit_attention_backend
+        }
     return config
 
 

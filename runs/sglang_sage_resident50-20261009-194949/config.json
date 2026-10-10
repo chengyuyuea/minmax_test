@@ -1,0 +1,40 @@
+{
+  "model_path": "/mnt/workspace/MiniMax-H3-SGLang",
+  "model_variant": "fl2va",
+  "pipeline_class_name": "MiniMaxH3Pipeline",
+  "backend": "sglang",
+  "performance_mode": "memory",
+  "layerwise_offload_components": [
+    "dit",
+    "text_encoder",
+    "vae"
+  ],
+  "layerwise_resident_layers": {
+    "video_vae": 36
+  },
+  "dit_layerwise_resident_layers": 50.0,
+  "dit_offload_prefetch_size": 0.0,
+  "enable_torch_compile": false,
+  "component_paths": {
+    "transformer": "/mnt/workspace/MiniMax-H3/transformer"
+  },
+  "prompt": "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+  "task": "t2va",
+  "conditions": [],
+  "target": {
+    "short_edge": 768,
+    "aspect_ratio": "16:9",
+    "duration_seconds": 5.0
+  },
+  "num_inference_steps": 50,
+  "flow_shift": 12.0,
+  "audio_flow_shift": 3.0,
+  "seed": 0,
+  "save_output": true,
+  "output_path": "/mnt/workspace/outputs/sglang_sage_resident50-20261009-194949",
+  "output_file_name": "video.mp4",
+  "enable_cache_dit": false,
+  "component_attention_backends": {
+    "transformer": "sage_attn"
+  }
+}

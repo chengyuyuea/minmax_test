@@ -1,0 +1,322 @@
+{
+  "run_id": "diffusers_steps2_repeat2_reuse-20260928-150823",
+  "argv": [
+    "scripts/run_h3.py",
+    "--prompt",
+    "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+    "--steps",
+    "2",
+    "--seed",
+    "0",
+    "--tag",
+    "load-calib",
+    "--reuse-text-embeds",
+    "--repeat",
+    "2",
+    "--drop-page-cache",
+    "--run-id",
+    "diffusers_steps2_repeat2_reuse-20260928-150823"
+  ],
+  "env": {
+    "hostname": "dsw-1060989-6cb85bf96c-j97fp",
+    "python": "3.12.13",
+    "torch": "2.13.0+cu130",
+    "torch_cuda": "13.0",
+    "cudnn": 92000,
+    "attn_backend": null,
+    "diffusers": "0.40.0",
+    "gpu": "NVIDIA A100-SXM4-80GB",
+    "gpu_capability": "8.0",
+    "driver": "550.163.01",
+    "flash_attn": "2.8.3",
+    "sageattention": "2.2.0",
+    "triton": "3.7.1",
+    "host_mem_total_gib": 122.8,
+    "host_mem_available_gib": 117.5,
+    "host_cached_gib": 112.8
+  },
+  "started_at": "2026-09-28T15:08:23",
+  "hz": 2.0,
+  "wall_seconds": 507.6,
+  "load_seconds_total": 414.8,
+  "run_seconds_total": 79.5,
+  "overhead_seconds": 13.3,
+  "phase_seconds": {
+    "init": 0.3,
+    "load:before_encode#0": 0.0,
+    "run:before_encode#0": 0.0,
+    "free:before_encode#0": 0.3,
+    "load:text_encoder#0": 183.4,
+    "run:text_encoder#0": 0.8,
+    "free:text_encoder#0": 0.4,
+    "load:vae_encoder#0": 29.4,
+    "run:vae_encoder#0": 0.0,
+    "free:vae_encoder#0": 0.2,
+    "load:denoise#0": 180.4,
+    "run:denoise#0": 17.2,
+    "free:denoise#0": 0.4,
+    "load:decode#0": 3.6,
+    "run:decode#0": 19.4,
+    "free:decode#0": 0.3,
+    "encode_mp4#0": 3.8,
+    "load:before_encode#1": 0.0,
+    "run:before_encode#1": 0.0,
+    "free:before_encode#1": 0.3,
+    "reuse:text_encoder#1": 0.0,
+    "load:vae_encoder#1": 2.1,
+    "run:vae_encoder#1": 0.0,
+    "free:vae_encoder#1": 0.3,
+    "load:denoise#1": 12.7,
+    "run:denoise#1": 17.1,
+    "free:denoise#1": 0.4,
+    "load:decode#1": 3.2,
+    "run:decode#1": 17.6,
+    "free:decode#1": 0.3,
+    "encode_mp4#1": 3.6
+  },
+  "phase_io": {
+    "init": {
+      "read_gib": 0.01,
+      "major_faults": 0,
+      "cached_before_gib": 2.6,
+      "cached_after_gib": 2.6
+    },
+    "load:before_encode#0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 2.6,
+      "cached_after_gib": 2.6
+    },
+    "run:before_encode#0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 2.6,
+      "cached_after_gib": 2.6
+    },
+    "free:before_encode#0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 2.6,
+      "cached_after_gib": 2.6
+    },
+    "load:text_encoder#0": {
+      "read_gib": 62.15,
+      "major_faults": 255636,
+      "cached_before_gib": 2.6,
+      "cached_after_gib": 64.8
+    },
+    "run:text_encoder#0": {
+      "read_gib": 0.0,
+      "major_faults": 2,
+      "cached_before_gib": 64.8,
+      "cached_after_gib": 64.8
+    },
+    "free:text_encoder#0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 64.8,
+      "cached_after_gib": 64.8
+    },
+    "load:vae_encoder#0": {
+      "read_gib": 10.26,
+      "major_faults": 42573,
+      "cached_before_gib": 64.8,
+      "cached_after_gib": 75.1
+    },
+    "run:vae_encoder#0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 75.1,
+      "cached_after_gib": 75.1
+    },
+    "free:vae_encoder#0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 75.1,
+      "cached_after_gib": 75.1
+    },
+    "load:denoise#0": {
+      "read_gib": 61.73,
+      "major_faults": 253613,
+      "cached_before_gib": 75.1,
+      "cached_after_gib": 118.2
+    },
+    "run:denoise#0": {
+      "read_gib": 0.0,
+      "major_faults": 22,
+      "cached_before_gib": 118.2,
+      "cached_after_gib": 117.9
+    },
+    "free:denoise#0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.9,
+      "cached_after_gib": 117.9
+    },
+    "load:decode#0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 117.9,
+      "cached_after_gib": 117.9
+    },
+    "run:decode#0": {
+      "read_gib": 0.02,
+      "major_faults": 176,
+      "cached_before_gib": 117.9,
+      "cached_after_gib": 113.3
+    },
+    "free:decode#0": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 113.3,
+      "cached_after_gib": 113.3
+    },
+    "encode_mp4#0": {
+      "read_gib": 0.01,
+      "major_faults": 0,
+      "cached_before_gib": 113.3,
+      "cached_after_gib": 113.3
+    },
+    "load:before_encode#1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 113.3,
+      "cached_after_gib": 113.3
+    },
+    "run:before_encode#1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 113.3,
+      "cached_after_gib": 113.3
+    },
+    "free:before_encode#1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 113.3,
+      "cached_after_gib": 113.3
+    },
+    "reuse:text_encoder#1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 113.3,
+      "cached_after_gib": 113.3
+    },
+    "load:vae_encoder#1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 113.3,
+      "cached_after_gib": 113.3
+    },
+    "run:vae_encoder#1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 113.3,
+      "cached_after_gib": 113.3
+    },
+    "free:vae_encoder#1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 113.3,
+      "cached_after_gib": 113.3
+    },
+    "load:denoise#1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 113.3,
+      "cached_after_gib": 113.3
+    },
+    "run:denoise#1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 113.3,
+      "cached_after_gib": 113.3
+    },
+    "free:denoise#1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 113.3,
+      "cached_after_gib": 113.3
+    },
+    "load:decode#1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 113.3,
+      "cached_after_gib": 113.3
+    },
+    "run:decode#1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 113.3,
+      "cached_after_gib": 112.8
+    },
+    "free:decode#1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 112.8,
+      "cached_after_gib": 112.8
+    },
+    "encode_mp4#1": {
+      "read_gib": 0.0,
+      "major_faults": 0,
+      "cached_before_gib": 112.8,
+      "cached_after_gib": 112.8
+    }
+  },
+  "step_ms_median": 17151.6,
+  "step_ms_mean": 17101.5,
+  "steps_counted": 2,
+  "peak_torch_alloc_gib": 68.08,
+  "peak_nvml_used_gib": 70.59,
+  "peak_host_used_gib": 9.6,
+  "tag": "load-calib",
+  "args": {
+    "prompt": "A cinematic shot of a red fox trotting through a snowy pine forest at dawn, soft volumetric light, shallow depth of field",
+    "image": null,
+    "last_image": null,
+    "height": 768,
+    "width": 1344,
+    "num_frames": 124,
+    "steps": 2,
+    "seed": 0,
+    "out": "/mnt/workspace/outputs/diffusers_steps2_repeat2_reuse-20260928-150823/video.mp4",
+    "outputs_dir": "/mnt/workspace/outputs",
+    "model_dir": "/mnt/workspace/MiniMax-H3",
+    "lora": null,
+    "lora_scale": 1.0,
+    "run_id": "diffusers_steps2_repeat2_reuse-20260928-150823",
+    "runs_dir": "/mnt/workspace/runs",
+    "monitor_hz": 2.0,
+    "tag": "load-calib",
+    "no_load_opt": false,
+    "parallel_load": false,
+    "profile": false,
+    "cache_dit": false,
+    "cache_dit_threshold": 0.15,
+    "repeat": 2,
+    "reuse_text_embeds": true,
+    "compile": false,
+    "compile_fullgraph": false,
+    "prompt_file": null,
+    "batch_limit": null,
+    "drop_page_cache": true,
+    "tf32": false,
+    "generator": null
+  },
+  "output": "/mnt/workspace/outputs/diffusers_steps2_repeat2_reuse-20260928-150823/video-0.mp4",
+  "outputs": [
+    "/mnt/workspace/outputs/diffusers_steps2_repeat2_reuse-20260928-150823/video-0.mp4",
+    "/mnt/workspace/outputs/diffusers_steps2_repeat2_reuse-20260928-150823/video-1.mp4"
+  ],
+  "fps": 24,
+  "page_cache": {
+    "dropped": true,
+    "files": 102,
+    "cached_before_gib": 112.6,
+    "cached_after_gib": 2.55
+  },
+  "finished_at": "2026-09-28T15:16:50",
+  "renamed_from": [
+    "loadcal-20260928-c2",
+    "steps2_repeat2_reuse-20260928-150823"
+  ]
+}

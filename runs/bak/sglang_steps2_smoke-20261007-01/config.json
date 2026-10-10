@@ -1,0 +1,28 @@
+{
+  "model_path": "/mnt/workspace/MiniMax-H3-SGLang",
+  "model_variant": "fl2va",
+  "pipeline_class_name": "MiniMaxH3Pipeline",
+  "backend": "sglang",
+  "performance_mode": "memory",
+  "layerwise_offload_components": ["dit", "text_encoder", "vae"],
+  "layerwise_resident_layers": {"video_vae": 36},
+  "enable_torch_compile": false,
+  "component_paths": {
+    "transformer": "/mnt/workspace/MiniMax-H3/transformer"
+  },
+  "prompt": "A red fox walks through a quiet snowy forest, cinematic natural light.",
+  "task": "t2va",
+  "conditions": [],
+  "target": {
+    "short_edge": 768,
+    "aspect_ratio": "16:9",
+    "duration_seconds": 4.0
+  },
+  "num_inference_steps": 2,
+  "flow_shift": 12.0,
+  "audio_flow_shift": 3.0,
+  "seed": 0,
+  "save_output": true,
+  "output_path": "/mnt/workspace/outputs/bak/sglang_steps2_smoke-20261007-01",
+  "output_file_name": "smoke.mp4"
+}

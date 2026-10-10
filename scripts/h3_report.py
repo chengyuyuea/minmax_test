@@ -9,8 +9,8 @@ runs and reports video PSNR/SSIM plus decoded-audio waveform SNR.
 Usage:
   scripts/h3_report.py
   scripts/h3_report.py --tag fbcache --sort pervideo
-  scripts/h3_report.py --quality-reference raw-20260929-103055 \
-      --quality-target sage-20260928-165335 --quality-json logs/quality.json
+  scripts/h3_report.py --quality-reference diffusers_raw-20260929-103055 \
+      --quality-target diffusers_sage-20260928-165335 --quality-json logs/quality.json
 """
 import argparse
 from array import array

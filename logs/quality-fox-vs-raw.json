@@ -1,5 +1,5 @@
 {
-  "reference_run_id": "raw-20260929-103055",
+  "reference_run_id": "diffusers_raw-20260929-103055",
   "comparison_basis": "encoded MP4; decoded video and 32 kHz stereo audio",
   "thresholds": {
     "min_psnr_db": null,
@@ -8,8 +8,8 @@
   },
   "results": [
     {
-      "run_id": "sage-20260928-165335",
-      "reference_run_id": "raw-20260929-103055",
+      "run_id": "diffusers_sage-20260928-165335",
+      "reference_run_id": "diffusers_raw-20260929-103055",
       "video_psnr_db": 29.110383,
       "video_ssim": 0.933484,
       "audio_snr_db": 6.604987,
@@ -17,8 +17,8 @@
       "passed": null
     },
     {
-      "run_id": "fbcache025-20260928-203358",
-      "reference_run_id": "raw-20260929-103055",
+      "run_id": "diffusers_fbcache025-20260928-203358",
+      "reference_run_id": "diffusers_raw-20260929-103055",
       "video_psnr_db": 17.435236,
       "video_ssim": 0.736246,
       "audio_snr_db": 4.157445,
@@ -26,8 +26,8 @@
       "passed": null
     },
     {
-      "run_id": "sage_fbcache015-20260928-200056",
-      "reference_run_id": "raw-20260929-103055",
+      "run_id": "diffusers_sage_fbcache015-20260928-200056",
+      "reference_run_id": "diffusers_raw-20260929-103055",
       "video_psnr_db": 20.048219,
       "video_ssim": 0.783947,
       "audio_snr_db": 7.106781,
@@ -35,8 +35,8 @@
       "passed": null
     },
     {
-      "run_id": "sage_fbcache020-20260928-201152",
-      "reference_run_id": "raw-20260929-103055",
+      "run_id": "diffusers_sage_fbcache020-20260928-201152",
+      "reference_run_id": "diffusers_raw-20260929-103055",
       "video_psnr_db": 17.97064,
       "video_ssim": 0.759281,
       "audio_snr_db": 2.802792,
@@ -44,8 +44,8 @@
       "passed": null
     },
     {
-      "run_id": "sage_fbcache025-20260928-204352",
-      "reference_run_id": "raw-20260929-103055",
+      "run_id": "diffusers_sage_fbcache025-20260928-204352",
+      "reference_run_id": "diffusers_raw-20260929-103055",
       "video_psnr_db": 17.620639,
       "video_ssim": 0.744322,
       "audio_snr_db": 3.404867,
@@ -54,7 +54,7 @@
     },
     {
       "run_id": "turbolora_v4_8eval-20260930-01",
-      "reference_run_id": "raw-20260929-103055",
+      "reference_run_id": "diffusers_raw-20260929-103055",
       "video_psnr_db": 20.562,
       "video_ssim": 0.765495,
       "audio_snr_db": -8.576,
@@ -62,8 +62,8 @@
       "passed": null
     },
     {
-      "run_id": "sage_turbolora_v4_8eval-20261008-160115",
-      "reference_run_id": "raw-20260929-103055",
+      "run_id": "turbolora_sage_v4_8eval-20261008-160115",
+      "reference_run_id": "diffusers_raw-20260929-103055",
       "video_psnr_db": 20.077919,
       "video_ssim": 0.756329,
       "audio_snr_db": -8.567864,

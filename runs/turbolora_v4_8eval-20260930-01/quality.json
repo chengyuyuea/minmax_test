@@ -1,5 +1,5 @@
 {
-  "reference_run_id": "raw-20260929-103055",
+  "reference_run_id": "diffusers_raw-20260929-103055",
   "comparison_basis": "encoded MP4; decoded video and 32 kHz stereo audio",
   "thresholds": {
     "min_psnr_db": null,
@@ -9,7 +9,7 @@
   "results": [
     {
       "run_id": "turbolora_v4_8eval-20260930-01",
-      "reference_run_id": "raw-20260929-103055",
+      "reference_run_id": "diffusers_raw-20260929-103055",
       "video_psnr_db": 20.561724,
       "video_ssim": 0.765495,
       "audio_snr_db": -8.575846,
